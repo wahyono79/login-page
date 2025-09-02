@@ -3,17 +3,16 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Profil Usaha LSM</title>
+  <title>LSM - Limbangmulia Sejahtera Mandiri</title>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <style>
     :root {
-      --primary: #0288d1;
-      --primary-dark: #01579b;
-      --secondary: #ff8a65;
-      --light: #f5f9fc;
-      --dark: #333;
-      --gray: #6c757d;
-      --success: #28a745;
+      --merah: #e60000;
+      --merah-gelap: #cc0000;
+      --putih: #ffffff;
+      --putih-krem: #f8f9fa;
+      --abu: #6c757d;
+      --abu-gelap: #343a40;
     }
     
     * {
@@ -25,54 +24,60 @@
     body {
       font-family: 'Poppins', 'Segoe UI', sans-serif;
       line-height: 1.6;
-      color: var(--dark);
-      background: var(--light);
+      color: var(--abu-gelap);
+      background: var(--putih-krem);
       overflow-x: hidden;
     }
     
     /* Header Styles */
     header {
-      background: linear-gradient(135deg, var(--primary), var(--primary-dark));
-      color: white;
-      padding: 1.5rem 1rem;
+      background: linear-gradient(135deg, var(--merah), var(--merah-gelap));
+      color: var(--putih);
+      padding: 2rem 1rem;
       text-align: center;
       position: relative;
       overflow: hidden;
     }
     
-    header::before {
-      content: '';
+    .header-flag {
       position: absolute;
       top: 0;
       left: 0;
       width: 100%;
       height: 100%;
-      background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1440 320'%3E%3Cpath fill='%23ffffff' fill-opacity='0.1' d='M0,128L48,117.3C96,107,192,85,288,112C384,139,480,213,576,218.7C672,224,768,160,864,138.7C960,117,1056,139,1152,138.7C1248,139,1344,117,1392,106.7L1440,96L1440,320L1392,320C1344,320,1248,320,1152,320C1056,320,960,320,864,320C768,320,672,320,576,320C480,320,384,320,288,320C192,320,96,320,48,320L0,320Z'%3E%3C/path%3E%3C/svg%3E");
-      background-size: cover;
-      background-position: center;
+      background: repeating-linear-gradient(
+        180deg,
+        var(--merah),
+        var(--merah) 10px,
+        var(--putih) 10px,
+        var(--putih) 20px
+      );
+      opacity: 0.1;
+      z-index: 0;
     }
     
     .header-content {
       position: relative;
       max-width: 1200px;
       margin: 0 auto;
+      z-index: 1;
     }
     
     h1 {
-      font-size: 2.5rem;
+      font-size: 2.8rem;
       margin-bottom: 0.5rem;
-      text-shadow: 1px 1px 3px rgba(0,0,0,0.3);
+      text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
     }
     
     .tagline {
-      font-size: 1.2rem;
+      font-size: 1.3rem;
       margin-bottom: 1.5rem;
-      opacity: 0.9;
+      opacity: 0.95;
     }
     
     /* Navigation */
     nav {
-      background: white;
+      background: var(--putih);
       box-shadow: 0 2px 10px rgba(0,0,0,0.1);
       position: sticky;
       top: 0;
@@ -89,9 +94,15 @@
     }
     
     .logo {
-      font-weight: 700;
-      font-size: 1.5rem;
-      color: var(--primary);
+      font-weight: 800;
+      font-size: 1.8rem;
+      color: var(--merah);
+      display: flex;
+      align-items: center;
+    }
+    
+    .logo i {
+      margin-right: 0.5rem;
     }
     
     .nav-links {
@@ -105,13 +116,30 @@
     
     .nav-links a {
       text-decoration: none;
-      color: var(--dark);
-      font-weight: 500;
+      color: var(--abu-gelap);
+      font-weight: 600;
       transition: color 0.3s;
+      position: relative;
+      padding: 0.5rem 0;
+    }
+    
+    .nav-links a::after {
+      content: '';
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      width: 0;
+      height: 3px;
+      background: var(--merah);
+      transition: width 0.3s;
     }
     
     .nav-links a:hover {
-      color: var(--primary);
+      color: var(--merah);
+    }
+    
+    .nav-links a:hover::after {
+      width: 100%;
     }
     
     /* Main Content */
@@ -122,12 +150,13 @@
     }
     
     section {
-      background: white;
+      background: var(--putih);
       border-radius: 10px;
-      padding: 2rem;
-      margin-bottom: 2rem;
+      padding: 2.5rem;
+      margin-bottom: 2.5rem;
       box-shadow: 0 5px 15px rgba(0,0,0,0.05);
       transition: transform 0.3s, box-shadow 0.3s;
+      border-top: 5px solid var(--merah);
     }
     
     section:hover {
@@ -136,11 +165,21 @@
     }
     
     h2 {
-      color: var(--primary);
+      color: var(--merah);
       margin-bottom: 1.5rem;
       padding-bottom: 0.5rem;
-      border-bottom: 2px solid var(--primary);
       display: inline-block;
+      position: relative;
+    }
+    
+    h2::after {
+      content: '';
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      width: 50px;
+      height: 3px;
+      background: var(--merah);
     }
     
     .section-header {
@@ -150,47 +189,54 @@
     }
     
     .section-header i {
-      font-size: 1.8rem;
-      color: var(--primary);
-      margin-right: 0.8rem;
+      font-size: 2rem;
+      color: var(--merah);
+      margin-right: 1rem;
+      background: rgba(230, 0, 0, 0.1);
+      padding: 0.8rem;
+      border-radius: 50%;
     }
     
     /* Highlight Box */
     .highlight {
-      background: linear-gradient(to right, #e0f7fa, #bbdefb);
-      padding: 1.5rem;
+      background: linear-gradient(to right, rgba(230, 0, 0, 0.1), rgba(230, 0, 0, 0.05));
+      padding: 1.8rem;
       border-radius: 8px;
-      border-left: 4px solid var(--primary);
-      margin: 1.5rem 0;
+      border-left: 4px solid var(--merah);
+      margin: 2rem 0;
       position: relative;
+      overflow: hidden;
     }
     
     .highlight i {
       position: absolute;
       top: -15px;
       right: 15px;
-      font-size: 2.5rem;
-      color: var(--primary);
-      opacity: 0.2;
+      font-size: 4rem;
+      color: var(--merah);
+      opacity: 0.1;
     }
     
     /* List Styles */
     ul {
       padding-left: 1.5rem;
-      margin: 1rem 0;
+      margin: 1.5rem 0;
     }
     
     ul li {
-      margin-bottom: 0.8rem;
+      margin-bottom: 1rem;
       position: relative;
+      padding-left: 0.5rem;
     }
     
     ul li::before {
-      content: '✓';
-      color: var(--success);
+      content: '•';
+      color: var(--merah);
       font-weight: bold;
+      font-size: 1.5rem;
       position: absolute;
-      left: -1.5rem;
+      left: -1.2rem;
+      top: -0.3rem;
     }
     
     /* Map Container */
@@ -198,11 +244,12 @@
       position: relative;
       width: 100%;
       height: 0;
-      padding-bottom: 56.25%; /* 16:9 Aspect Ratio */
+      padding-bottom: 56.25%;
       border-radius: 8px;
       overflow: hidden;
-      margin: 1.5rem 0;
+      margin: 2rem 0;
       box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+      border: 2px solid var(--merah);
     }
     
     .map-container iframe {
@@ -219,67 +266,128 @@
       display: flex;
       flex-wrap: wrap;
       gap: 1.5rem;
-      margin-top: 1.5rem;
+      margin-top: 2rem;
     }
     
     .contact-item {
       display: flex;
       align-items: center;
-      background: #f8f9fa;
-      padding: 1rem;
+      background: rgba(230, 0, 0, 0.05);
+      padding: 1.5rem;
       border-radius: 8px;
       flex: 1;
       min-width: 250px;
+      border: 1px solid rgba(230, 0, 0, 0.1);
+      transition: transform 0.3s;
+    }
+    
+    .contact-item:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 5px 15px rgba(0,0,0,0.1);
     }
     
     .contact-item i {
-      font-size: 1.5rem;
-      color: var(--primary);
-      margin-right: 1rem;
+      font-size: 2rem;
+      color: var(--merah);
+      margin-right: 1.5rem;
+      background: rgba(230, 0, 0, 0.1);
+      padding: 1rem;
+      border-radius: 50%;
+    }
+    
+    .contact-item a {
+      color: var(--abu-gelap);
+      text-decoration: none;
+      transition: color 0.3s;
+    }
+    
+    .contact-item a:hover {
+      color: var(--merah);
     }
     
     /* Footer */
     footer {
-      background: linear-gradient(135deg, var(--primary-dark), var(--primary));
-      color: white;
+      background: linear-gradient(135deg, var(--merah-gelap), var(--merah));
+      color: var(--putih);
       text-align: center;
-      padding: 2rem 1rem;
+      padding: 3rem 1rem;
       margin-top: 3rem;
+      position: relative;
+      overflow: hidden;
+    }
+    
+    footer::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1440 320'%3E%3Cpath fill='%23ffffff' fill-opacity='0.1' d='M0,128L48,117.3C96,107,192,85,288,112C384,139,480,213,576,218.7C672,224,768,160,864,138.7C960,117,1056,139,1152,138.7C1248,139,1344,117,1392,106.7L1440,96L1440,320L1392,320C1344,320,1248,320,1152,320C1056,320,960,320,864,320C768,320,672,320,576,320C480,320,384,320,288,320C192,320,96,320,48,320L0,320Z'%3E%3C/path%3E%3C/svg%3E");
+      background-size: cover;
+      background-position: center;
     }
     
     .footer-content {
+      position: relative;
       max-width: 1200px;
       margin: 0 auto;
+      z-index: 1;
     }
     
     .social-icons {
       display: flex;
       justify-content: center;
-      gap: 1rem;
-      margin: 1.5rem 0;
+      gap: 1.5rem;
+      margin: 2rem 0;
     }
     
     .social-icons a {
       display: flex;
       align-items: center;
       justify-content: center;
-      width: 40px;
-      height: 40px;
+      width: 50px;
+      height: 50px;
       background: rgba(255,255,255,0.1);
-      color: white;
+      color: var(--putih);
       border-radius: 50%;
       transition: background 0.3s, transform 0.3s;
+      font-size: 1.3rem;
     }
     
     .social-icons a:hover {
       background: rgba(255,255,255,0.2);
-      transform: translateY(-3px);
+      transform: translateY(-5px);
+    }
+    
+    .footer-links {
+      display: flex;
+      justify-content: center;
+      flex-wrap: wrap;
+      gap: 1.5rem;
+      margin: 1.5rem 0;
+    }
+    
+    .footer-links a {
+      color: var(--putih);
+      text-decoration: none;
+      opacity: 0.8;
+      transition: opacity 0.3s;
+    }
+    
+    .footer-links a:hover {
+      opacity: 1;
+      text-decoration: underline;
     }
     
     /* Responsive Design */
     @media (max-width: 768px) {
       h1 {
-        font-size: 2rem;
+        font-size: 2.2rem;
+      }
+      
+      .tagline {
+        font-size: 1.1rem;
       }
       
       .nav-container {
@@ -287,20 +395,26 @@
       }
       
       .nav-links {
-        margin-top: 1rem;
+        margin-top: 1.5rem;
+        flex-wrap: wrap;
+        justify-content: center;
       }
       
       .nav-links li {
-        margin-left: 1rem;
-        margin-right: 1rem;
+        margin: 0.5rem 1rem;
       }
       
       section {
-        padding: 1.5rem;
+        padding: 2rem 1.5rem;
       }
       
       .contact-item {
         min-width: 100%;
+      }
+      
+      .section-header i {
+        font-size: 1.5rem;
+        padding: 0.6rem;
       }
     }
     
@@ -314,16 +428,27 @@
       }
       
       .nav-links {
-        flex-wrap: wrap;
-        justify-content: center;
+        flex-direction: column;
+        align-items: center;
       }
       
       .nav-links li {
-        margin: 0.5rem;
+        margin: 0.3rem 0;
+      }
+      
+      .section-header {
+        flex-direction: column;
+        text-align: center;
       }
       
       .section-header i {
-        font-size: 1.5rem;
+        margin-bottom: 1rem;
+        margin-right: 0;
+      }
+      
+      h2::after {
+        left: 50%;
+        transform: translateX(-50%);
       }
     }
     
@@ -340,43 +465,76 @@
     /* Button Styles */
     .cta-button {
       display: inline-block;
-      background: var(--primary);
-      color: white;
-      padding: 0.8rem 1.5rem;
+      background: var(--putih);
+      color: var(--merah);
+      padding: 1rem 2rem;
       border-radius: 30px;
       text-decoration: none;
-      font-weight: 500;
-      margin-top: 1rem;
-      transition: background 0.3s, transform 0.3s;
-      box-shadow: 0 4px 10px rgba(2, 136, 209, 0.3);
+      font-weight: 600;
+      margin-top: 1.5rem;
+      transition: all 0.3s;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+      border: 2px solid var(--putih);
     }
     
     .cta-button:hover {
-      background: var(--primary-dark);
-      transform: translateY(-2px);
-      box-shadow: 0 6px 15px rgba(2, 136, 209, 0.4);
+      background: transparent;
+      color: var(--putih);
+      transform: translateY(-3px);
+      box-shadow: 0 6px 15px rgba(0,0,0,0.3);
+    }
+    
+    /* Additional Styling */
+    .indonesia-flag {
+      display: inline-block;
+      width: 20px;
+      height: 20px;
+      background: linear-gradient(180deg, var(--merah) 50%, var(--putih) 50%);
+      border: 1px solid var(--abu-gelap);
+      margin-right: 10px;
+      border-radius: 2px;
+    }
+    
+    .value-prop {
+      text-align: center;
+      margin: 2rem 0;
+      padding: 1.5rem;
+      background: rgba(230, 0, 0, 0.05);
+      border-radius: 10px;
+    }
+    
+    .value-prop i {
+      font-size: 3rem;
+      color: var(--merah);
+      margin-bottom: 1rem;
+    }
+    
+    .value-prop h3 {
+      color: var(--merah);
+      margin-bottom: 0.5rem;
     }
   </style>
 </head>
 <body>
 
 <header>
+  <div class="header-flag"></div>
   <div class="header-content">
-    <h1>PT. Limbangmulia Sejahtera Mandiri (LSM)</h1>
+    <h1><span class="indonesia-flag"></span>PT. Limbangmulia Sejahtera Mandiri</h1>
     <p class="tagline">Solusi Internet Cepat dan Terjangkau untuk Masyarakat Desa</p>
-    <a href="#contact" class="cta-button">Hubungi Kami</a>
+    <a href="#contact" class="cta-button"><i class="fas fa-phone-alt"></i> Hubungi Kami</a>
   </div>
 </header>
 
 <nav>
   <div class="nav-container">
-    <div class="logo">LSM</div>
+    <div class="logo"><i class="fas fa-wifi"></i> LSM NET</div>
     <ul class="nav-links">
-      <li><a href="#about">Tentang</a></li>
-      <li><a href="#vision">Visi Misi</a></li>
-      <li><a href="#services">Layanan</a></li>
-      <li><a href="#coverage">Jangkauan</a></li>
-      <li><a href="#contact">Kontak</a></li>
+      <li><a href="#about"><i class="fas fa-info-circle"></i> Tentang</a></li>
+      <li><a href="#vision"><i class="fas fa-bullseye"></i> Visi Misi</a></li>
+      <li><a href="#services"><i class="fas fa-concierge-bell"></i> Layanan</a></li>
+      <li><a href="#coverage"><i class="fas fa-map-marker-alt"></i> Jangkauan</a></li>
+      <li><a href="#contact"><i class="fas fa-address-book"></i> Kontak</a></li>
     </ul>
   </div>
 </nav>
@@ -388,6 +546,12 @@
       <h2>Tentang Kami</h2>
     </div>
     <p><strong>PT. Limbangmulia Sejahtera Mandiri (LSM)</strong> adalah usaha layanan internet berbasis desa yang berkomitmen menghadirkan akses internet yang cepat, stabil, dan terjangkau bagi masyarakat pedesaan. Berdiri atas dasar semangat gotong royong dan kemandirian teknologi, LSM hadir untuk menjawab kebutuhan digital masyarakat modern, tanpa meninggalkan akar lokal.</p>
+    
+    <div class="value-prop">
+      <i class="fas fa-handshake"></i>
+      <h3>Gotong Royong Digital</h3>
+      <p>Kami percaya pada pemberdayaan masyarakat melalui teknologi</p>
+    </div>
   </section>
 
   <section id="vision">
@@ -409,7 +573,7 @@
   </section>
 
   <div class="highlight">
-    <i class="fas fa-lightbulb"></i>
+    <i class="fas fa-star"></i>
     <p>🌟 Kami menyediakan berbagai pilihan paket internet harian, mingguan, hingga bulanan melalui sistem voucher otomatis dan pembayaran digital!</p>
   </div>
 
@@ -424,6 +588,12 @@
       <li>Pembayaran melalui Tripay dan pengiriman voucher via WhatsApp (MPWA).</li>
       <li>Dukungan teknis dan layanan pelanggan ramah.</li>
     </ul>
+    
+    <div class="value-prop">
+      <i class="fas fa-bolt"></i>
+      <h3>Internet Cepat dan Stabil</h3>
+      <p>Dengan teknologi terkini untuk pengalaman browsing terbaik</p>
+    </div>
   </section>
 
   <section id="coverage">
@@ -438,6 +608,7 @@
         loading="lazy">
       </iframe>
     </div>
+    <p>Kami terus memperluas jangkauan layanan untuk menjangkau lebih banyak daerah.</p>
   </section>
 
   <section id="contact">
@@ -463,6 +634,14 @@
           <p><a href="mailto:info@lsm.id">info@lsm.id</a></p>
         </div>
       </div>
+      
+      <div class="contact-item">
+        <i class="fas fa-map-marker-alt"></i>
+        <div>
+          <p><strong>Lokasi</strong></p>
+          <p>Desa Limbangmulia, Banyuasin</p>
+        </div>
+      </div>
     </div>
   </section>
 </div>
@@ -475,7 +654,15 @@
       <a href="#"><i class="fab fa-twitter"></i></a>
       <a href="#"><i class="fab fa-youtube"></i></a>
     </div>
-    <p>&copy; 2025 PT. Limbangmulia Sejahtera Mandiri. All rights reserved.</p>
+    
+    <div class="footer-links">
+      <a href="#">Kebijakan Privasi</a>
+      <a href="#">Syarat & Ketentuan</a>
+      <a href="#">Blog</a>
+      <a href="#">FAQ</a>
+    </div>
+    
+    <p>&copy; 2025 PT. Limbangmulia Sejahtera Mandiri. Seluruh hak cipta dilindungi.</p>
   </div>
 </footer>
 
