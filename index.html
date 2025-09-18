@@ -225,7 +225,7 @@
             <!-- Iframe Card -->
             <div class="mb-6">
                 <div class="rounded-2xl overflow-hidden shadow-lg relative">
-                    <iframe id="statusIframe" allowfullscreen loading="lazy" class="w-full border-0" style="height: 60dvh;"></iframe>
+                    <iframe src="http://wifi.lsm.my.id" allowfullscreen loading="lazy" class="w-full border-0" style="height: 60dvh;"></iframe>
                 </div>
             </div>
 
@@ -659,44 +659,6 @@
             }, 3500); // Splash screen duration
         });
 
-        // --- Iframe Loader with Proxy ---
-        async function loadIframeContent() {
-            const iframe = document.getElementById('statusIframe');
-            const targetUrl = 'http://wifi.lsm.my.id';
-            
-            // Daftar proxy yang akan dicoba
-            const proxies = [
-                `https://cors.sh/${targetUrl}`, // Proxy baru yang lebih andal
-                `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`
-                // `https://thingproxy.freeboard.io/fetch/${targetUrl}` // Seringkali kurang stabil, kita nonaktifkan sementara
-            ];
-
-            let success = false;
-            for (const proxyUrl of proxies) {
-                try {
-                    const response = await fetch(proxyUrl);
-                    if (!response.ok) {
-                        // Jika respons tidak OK (misal: error 500), lempar error untuk mencoba proxy berikutnya
-                        throw new Error(`Proxy failed with status: ${response.status}`);
-                    }
-                    const html = await response.text();
-                    // Periksa jika proxy mengembalikan pesan error
-                    if (!html || (html.includes('error') && html.includes('internal error'))) {
-                        throw new Error('Proxy returned an internal error');
-                    }
-                    iframe.srcdoc = html;
-                    success = true;
-                    break; // Hentikan loop jika berhasil
-                } catch (error) {
-                    console.warn(`Gagal menggunakan proxy: ${proxyUrl}`, error);
-                }
-            }
-
-            if (!success) {
-                console.error('Semua proxy gagal memuat konten iframe.');
-                iframe.srcdoc = '<html><body style="font-family: sans-serif; text-align: center; padding: 20px;"><h3>Gagal Memuat Konten</h3><p>Halaman status tidak dapat diakses saat ini. Silakan coba lagi nanti.</p></body></html>';
-            }
-        }
     </script>
     <script>
         // Register Service Worker
@@ -706,10 +668,8 @@
                     .then(registration => console.log('ServiceWorker registration successful with scope: ', registration.scope))
                     .catch(err => console.log('ServiceWorker registration failed: ', err));
             });
-
-            // Panggil fungsi untuk memuat iframe setelah halaman siap
-            loadIframeContent();
         }
     </script>
 </body>
 </html>
+
