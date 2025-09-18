@@ -666,8 +666,9 @@
             
             // Daftar proxy yang akan dicoba
             const proxies = [
-                `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`,
-                `https://thingproxy.freeboard.io/fetch/${targetUrl}`
+                `https://cors.sh/${targetUrl}`, // Proxy baru yang lebih andal
+                `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`
+                // `https://thingproxy.freeboard.io/fetch/${targetUrl}` // Seringkali kurang stabil, kita nonaktifkan sementara
             ];
 
             let success = false;
@@ -680,7 +681,7 @@
                     }
                     const html = await response.text();
                     // Periksa jika proxy mengembalikan pesan error
-                    if (html.includes('error') && html.includes('internal error')) {
+                    if (!html || (html.includes('error') && html.includes('internal error'))) {
                         throw new Error('Proxy returned an internal error');
                     }
                     iframe.srcdoc = html;
