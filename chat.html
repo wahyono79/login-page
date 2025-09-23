@@ -201,6 +201,12 @@
     }
     window.toggleSidebar = toggleSidebar;
 
+    // Fungsi untuk memulai chat dari input kontak
+    function startChatFromInput() {
+        const contactId = addContactIdInput.value.trim();
+        if (contactId && contactId !== myId) startChat(contactId);
+    }
+
     // --- FUNGSI UTILITAS ---
     function copyMyId() {
         navigator.clipboard.writeText(myId).then(() => {
@@ -259,6 +265,7 @@
 
       // Cek apakah user ada di 'users' collection
       await addContactById(contactId);
+      startChat(contactId); // Langsung mulai chat setelah menambahkan
       addContactIdInput.value = '';
     }
 
@@ -303,6 +310,11 @@
     }
 
     addContactBtn.onclick = addContact;
+    addContactIdInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            startChatFromInput();
+        }
+    });
     loadContacts();
 
     // --- PRESENCE SYSTEM (STATUS ONLINE) ---
@@ -329,6 +341,7 @@
     }
 
     function startChat(partnerId) {
+      if (!partnerId) return;
       activeChatPartner = partnerId;
       document.getElementById('chat-header').textContent = `Chat dengan ${partnerId}`;
       messageText.disabled = false;
@@ -339,6 +352,11 @@
       document.querySelectorAll('.contact-item').forEach(el => {
         el.classList.toggle('active', el.dataset.id === partnerId);
       });
+
+      // Jika kontak belum ada di list, tambahkan sementara ke UI
+      if (!contacts.includes(partnerId)) {
+          addContactIdInput.value = partnerId;
+      }
 
       if (messageUnsubscribe) messageUnsubscribe();
 
@@ -426,12 +444,13 @@
       if (text && activeChatPartner) {
         const roomId = getChatRoomId(myId, activeChatPartner);
 
-        // Jika partner belum ada di kontak, tambahkan secara otomatis
+        // Jika partner belum ada di kontak, tambahkan secara otomatis untuk kedua belah pihak
         if (!contacts.includes(activeChatPartner)) {
             await addContactById(activeChatPartner, activeChatPartner);
             // Juga tambahkan diri kita ke daftar kontak mereka
             const theirContactsDoc = doc(db, 'contacts', activeChatPartner);
             await setDoc(theirContactsDoc, { users: arrayUnion(myId) }, { merge: true });
+            addContactIdInput.value = ''; // Kosongkan input setelah berhasil
         }
         const messagesRef = collection(db, 'chatRooms', roomId, 'messages');
         await addDoc(messagesRef, {
