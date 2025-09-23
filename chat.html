@@ -14,7 +14,7 @@
     }
     html, body { height: 100%; overflow: hidden; }
     body { background: var(--background); display: flex; flex-direction: column; }
-    .app-header { position: fixed; top: 0; left: 0; right: 0; height: 60px; background: var(--primary-color); color: #fff; display: flex; align-items: center; padding: 0 8px; z-index: 1000; }
+    .app-header { position: fixed; top: 0; left: 0; right: 0; height: 60px; background: #013220; color: #fff; display: flex; align-items: center; padding: 0 8px; z-index: 1000; }
     .main-container { display: flex; flex: 1; overflow: hidden; padding-top: 60px; height: 100%; }
     .sidebar { width: 300px; border-right: 1px solid #dee2e6; display: flex; flex-direction: column; background: var(--card); transition: transform 0.3s ease-in-out; }
     .chat-window { flex: 1; display: flex; flex-direction: column; position: relative; height: 100%; }
@@ -24,7 +24,7 @@
     .message.sent { justify-content: flex-end; }
     .message.received { justify-content: flex-start; }
     .message-bubble { padding: 8px 12px; border-radius: 18px; max-width: 75%; position: relative; }
-    .message-bubble:hover .delete-msg-btn { opacity: 1; }
+    .message.sent .message-bubble:hover .delete-msg-btn { opacity: 1; }
     .message.sent .message-bubble { background: var(--primary-color); color: #fff; }
     .message.received .message-bubble { background: #e9ecef; color: #212121; }
     .message-sender { font-size: 0.75rem; color: #6c757d; margin: 0 5px 2px; }
@@ -136,8 +136,9 @@
   <script type="module">
     // Import fungsi yang diperlukan dari SDK
     // ... (kode impor firebase tetap sama) 
-    import { initializeApp } from 'https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js';
-    import { getFirestore, collection, addDoc, query, orderBy, onSnapshot, serverTimestamp, doc, setDoc, getDoc, updateDoc, deleteDoc, arrayUnion, getDocs } from 'https://www.gstatic.com/firebasejs/12.2.1/firebase-firestore.js';
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js";
+    import { getFirestore, collection, addDoc, query, orderBy, onSnapshot, serverTimestamp, doc, setDoc, getDoc, updateDoc, deleteDoc, arrayUnion, getDocs, where } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-firestore.js";
+    import { getMessaging, getToken, onMessage } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-messaging.js";
     // Hapus impor Firebase Storage karena tidak digunakan lagi untuk file sharing
 
     // Konfigurasi Firebase Anda
@@ -146,7 +147,7 @@
       apiKey: "AIzaSyDaTTWL1DBPk1AFReud-2jeFq68vnjn5cw",
       authDomain: "app-keuangan-nopi.firebaseapp.com",
       projectId: "app-keuangan-nopi",
-      storageBucket: "app-keuangan-nopi.firebasestorage.app",
+      storageBucket: "app-keuangan-nopi.appspot.com",
       messagingSenderId: "978916150187",
       appId: "1:978916150187:web:ac66a8cba83fe173d620ee"
     };
@@ -154,6 +155,7 @@
     // Inisialisasi Firebase
     const app = initializeApp(firebaseConfig);
     const db = getFirestore(app);
+    const messaging = getMessaging(app);
 
     // --- MANAJEMEN PENGGUNA & UI ---
     const myId = getOrSetUserId();
@@ -323,6 +325,45 @@
         }
     });
     loadContacts();
+
+    // --- FCM (PUSH NOTIFICATIONS) SETUP ---
+    const VAPID_KEY = "BMX3lPMtgfRAlWbIg6N2dCyN5s-flXnMtp5HFOUqtmJ5wIHmQO5LN7Ios9UJTOuGuMusqtrkZb4d5gWHFDH9mQk";
+
+    async function requestNotificationPermission() {
+        try {
+            const permission = await Notification.requestPermission();
+            if (permission === 'granted') {
+                console.log('Notification permission granted.');
+                const fcmToken = await getToken(messaging, { vapidKey: VAPID_KEY });
+                if (fcmToken) {
+                    console.log('FCM Token:', fcmToken);
+                    // Simpan token ke Firestore untuk pengguna ini
+                    const userStatusRef = doc(db, 'users', myId);
+                    await setDoc(userStatusRef, { fcmToken: fcmToken }, { merge: true });
+                } else {
+                    console.log('No registration token available. Request permission to generate one.');
+                }
+            } else {
+                console.log('Unable to get permission to notify.');
+            }
+        } catch (error) {
+            console.error('An error occurred while retrieving token. ', error);
+        }
+    }
+
+    // Minta izin notifikasi saat halaman dimuat
+    requestNotificationPermission();
+
+    // Handle pesan yang masuk saat aplikasi sedang dibuka (foreground)
+    onMessage(messaging, (payload) => {
+        console.log('Message received in foreground. ', payload);
+        const from = payload.notification.title.replace('Pesan baru dari ', '');
+        // Hanya tampilkan toast jika chat dengan pengirim tidak sedang aktif
+        if (from !== activeChatPartner) {
+            showToast(`Pesan baru dari: ${from}`, 'info');
+            // Suara notifikasi sudah ditangani oleh listener global, jadi tidak perlu di sini.
+        }
+    });
 
     // --- PRESENCE SYSTEM (STATUS ONLINE) ---
     async function setupPresenceSystem() {
@@ -597,28 +638,36 @@
 
     // Dengarkan semua pesan untuk notifikasi global
     // Ini adalah listener yang lebih baik untuk notifikasi global
-    // Dijalankan sekali saat load
-    async function listenForGlobalMessages() {
-        const q = query(collection(db, "messages"), where("recipientId", "==", myId), where("read", "==", false));
+    const allChatRoomsQuery = query(collection(db, "chatRooms"));
+    let initialLoad = true;
+    let messageListeners = {};
 
-        onSnapshot(q, (snapshot) => {
-            snapshot.docChanges().forEach((change) => {
-                if (change.type === "added") {
-                    const message = change.doc.data();
-                    const partnerId = message.senderId;
+    onSnapshot(allChatRoomsQuery, (snapshot) => {
+        snapshot.docChanges().forEach((roomChange) => {
+            const roomId = roomChange.doc.id;
+            if (roomId.includes(myId) && !messageListeners[roomId]) {
+                const partnerId = roomId.replace(myId, '').replace('_', '');
+                const messagesQuery = query(collection(db, "chatRooms", roomId, "messages"), orderBy("createdAt", "desc"), limit(1));
+                
+                messageListeners[roomId] = onSnapshot(messagesQuery, (msgSnapshot) => {
+                    // Hindari notifikasi saat pertama kali memuat data
+                    if (initialLoad) return;
 
-                    // Hanya update jika chat tidak sedang aktif
-                    if (partnerId !== activeChatPartner) {
-                        updateUnreadCount(partnerId);
-                        renderContacts(); // Perbarui UI kontak
-                        notificationSound.play().catch(e => console.warn("Gagal memainkan suara notifikasi global:", e));
-                    }
-                }
-            });
+                    msgSnapshot.docChanges().forEach((msgChange) => {
+                        if (msgChange.type === "added") {
+                            const newMessage = msgChange.doc.data();
+                            if (newMessage.senderId !== myId && partnerId !== activeChatPartner) {
+                                updateUnreadCount(partnerId);
+                                renderContacts();
+                                notificationSound.play().catch(e => console.warn("Gagal memainkan suara notifikasi global:", e));
+                            }
+                        }
+                    });
+                });
+            }
         });
-    }
-    // listenForGlobalMessages(); // Panggil fungsi ini jika Anda membuat koleksi 'messages' terpisah
-
+        initialLoad = false; // Setelah pemuatan awal selesai
+    });
 
     // --- PANGGILAN VIDEO/SUARA DENGAN WEBRTC & FIRESTORE SIGNALING ---
     const videoContainer = document.getElementById('video-container');

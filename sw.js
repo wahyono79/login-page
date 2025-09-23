@@ -1,5 +1,8 @@
 const CACHE_NAME = 'lsm-wifi-cache-v1'; // Ubah 'v1' menjadi 'v2', 'v3', dst. setiap kali ada perubahan signifikan
 const URLS_TO_CACHE = [
+    // Impor skrip FCM
+    '/firebase-messaging-sw.js',
+
     '/',
     '/index.html',
     '/manifest.json',
