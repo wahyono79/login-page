@@ -326,9 +326,21 @@
 
     // --- PRESENCE SYSTEM (STATUS ONLINE) ---
     const userStatusRef = doc(db, 'users', myId);
+    // Set status to online when the page loads
     setDoc(userStatusRef, { online: true, lastSeen: serverTimestamp() }, { merge: true });
+
+    // Use 'visibilitychange' which is more reliable on mobile
+    document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'hidden') {
+            setDoc(userStatusRef, { online: false, lastSeen: serverTimestamp() }, { merge: true });
+        } else {
+            setDoc(userStatusRef, { online: true, lastSeen: serverTimestamp() }, { merge: true });
+        }
+    });
+
+    // Use 'beforeunload' as a fallback for desktop browsers
     window.onbeforeunload = () => {
-      setDoc(userStatusRef, { online: false, lastSeen: serverTimestamp() }, { merge: true });
+        setDoc(userStatusRef, { online: false, lastSeen: serverTimestamp() }, { merge: true });
     };
 
     onSnapshot(collection(db, 'users'), (snapshot) => {
