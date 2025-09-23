@@ -90,6 +90,7 @@
         <div class="d-flex justify-content-between align-items-center">
             <small>ID Anda: <b id="my-id"></b></small>
             <button class="btn btn-sm btn-outline-secondary py-0 px-1" onclick="copyMyId()" title="Salin ID"><i class="material-icons" style="font-size: 14px;">content_copy</i></button>
+            <button class="btn btn-sm btn-outline-info py-0 px-1 ms-1" onclick="copyFcmToken()" title="Salin Token FCM (untuk debug)"><i class="material-icons" style="font-size: 14px;">bug_report</i></button>
         </div>
         <div class="input-group mt-2">
           <input type="text" id="add-contact-id" class="form-control form-control-sm" placeholder="Masukkan ID Kontak">
@@ -182,6 +183,7 @@
     const addContactBtn = document.getElementById('add-contact-btn');
     const addContactIdInput = document.getElementById('add-contact-id');
     const fileInput = document.getElementById('file-input');
+    let currentFcmToken = null; // Variabel untuk menyimpan token FCM
 
     let activeChatPartner = null;
     let messageUnsubscribe = null;
@@ -232,6 +234,17 @@
         });
     }
     window.copyMyId = copyMyId;
+
+    function copyFcmToken() {
+        if (currentFcmToken) {
+            navigator.clipboard.writeText(currentFcmToken).then(() => {
+                showToast('Token FCM telah disalin!', 'success');
+            });
+        } else {
+            showToast('Token FCM belum tersedia.', 'danger');
+        }
+    }
+    window.copyFcmToken = copyFcmToken;
 
     function showToast(message, type = 'info') {
         let toastContainer = document.getElementById('toast-container-main');
@@ -374,6 +387,7 @@
             if (permission === 'granted') {
                 console.log('Notification permission granted.');
                 const fcmToken = await getToken(messaging, { vapidKey: VAPID_KEY });
+                currentFcmToken = fcmToken; // Simpan token ke variabel global
                 if (fcmToken) {
                     console.log('FCM Token:', fcmToken);
                     // Simpan token ke Firestore untuk pengguna ini
