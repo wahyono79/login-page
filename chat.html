@@ -268,7 +268,10 @@
         ringtoneSound.play().then(() => ringtoneSound.pause()).catch(()=>{});
         document.body.removeEventListener('click', unlockAudio);
     }
-    document.body.addEventListener('click', unlockAudio, { once: true });
+    // Ganti event listener 'click' dengan 'mousedown' atau 'touchstart' untuk cakupan yang lebih luas
+    // dan pastikan audio tidak di-mute.
+    document.body.addEventListener('mousedown', unlockAudio, { once: true });
+    document.body.addEventListener('touchstart', unlockAudio, { once: true });
 
     async function addContact() {
       const contactId = addContactIdInput.value.trim();
@@ -276,6 +279,8 @@
         alert("ID Kontak tidak valid.");
         return;
       }
+      // Pastikan audio tidak diblokir
+      unlockAudio();
       if (contacts.includes(contactId)) {
         alert("Kontak sudah ada di daftar.");
         return;
@@ -425,6 +430,9 @@
     }
 
     function startChat(partnerId) {
+      // Pastikan audio tidak diblokir saat memulai chat
+      unlockAudio();
+
       if (!partnerId) return;
       activeChatPartner = partnerId;
       document.getElementById('chat-header').textContent = `Chat dengan ${partnerId}`;

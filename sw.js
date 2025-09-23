@@ -1,11 +1,11 @@
-const CACHE_NAME = 'lsm-wifi-cache-v1'; // Ubah 'v1' menjadi 'v2', 'v3', dst. setiap kali ada perubahan signifikan
+const CACHE_NAME = 'lsm-wifi-cache-v2'; // Naikkan versi cache untuk memicu pembaruan
 const URLS_TO_CACHE = [
     '/',
     '/index.html',
+    '/chat.html', // Tambahkan chat.html agar bisa diakses offline
     '/manifest.json',
     '/images/icon-192x192.png',
-    'https://cdn.tailwindcss.com',
-    'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap'
+    '/images/icon-512x512.png' // Tambahkan ikon lain yang ada di manifest
 ];
 
 // 1. Instalasi Service Worker
