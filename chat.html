@@ -1,0 +1,823 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Chat Realtime - Firebase & WebRTC</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+  <style>
+    :root {
+      --primary-color: #013220; /* Warna hijau tua dari website utama */
+      --background: #f8f9fa;
+      --card: #fff;
+    }
+    html, body { height: 100%; overflow: hidden; }
+    body { background: var(--background); display: flex; flex-direction: column; }
+    .app-header { position: fixed; top: 0; left: 0; right: 0; height: 60px; background: var(--primary-color); color: #fff; display: flex; align-items: center; padding: 0 8px; z-index: 1000; }
+    .main-container { display: flex; flex: 1; overflow: hidden; padding-top: 60px; height: 100%; }
+    .sidebar { width: 300px; border-right: 1px solid #dee2e6; display: flex; flex-direction: column; background: var(--card); transition: transform 0.3s ease-in-out; }
+    .chat-window { flex: 1; display: flex; flex-direction: column; position: relative; height: 100%; }
+    .messages { flex: 1; padding: 16px; overflow-y: auto; }
+    .message-input { flex-shrink: 0; border-top: 1px solid #dee2e6; padding: 10px; background: var(--card); }
+    .message { margin-bottom: 10px; display: flex; }
+    .message.sent { justify-content: flex-end; }
+    .message.received { justify-content: flex-start; }
+    .message-bubble { padding: 8px 12px; border-radius: 18px; max-width: 75%; }
+    .message.sent .message-bubble { background: var(--primary-color); color: #fff; }
+    .message.received .message-bubble { background: #e9ecef; color: #212121; }
+    .message-sender { font-size: 0.75rem; color: #6c757d; margin: 0 5px 2px; }
+    .video-container { position: fixed; inset: 0; background: #000; display: none; z-index: 1100; }
+    .message-bubble img, .message-bubble video { max-width: 100%; border-radius: 10px; margin-top: 5px; }
+    .file-attachment a { color: inherit; text-decoration: underline; }
+    .message.sent .file-attachment a { color: white; }
+    .upload-progress { position: absolute; bottom: 0; left: 0; height: 3px; background-color: var(--primary-color); width: 0%; transition: width 0.2s; }
+    #remoteVideo { width: 100%; height: 100%; object-fit: cover; }
+    #localVideo { width: 30%; max-width: 200px; position: absolute; bottom: 20px; right: 20px; border: 2px solid #fff; border-radius: 8px; object-fit: cover; }
+    .call-controls { position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%); z-index: 1101; }
+    .app-header h5 { font-size: 1.1rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: calc(100vw - 200px); }
+    .app-header .btn { padding: 6px 10px; }
+    .app-header .material-icons { font-size: 22px; vertical-align: middle; }
+    .contact-list { overflow-y: auto; flex: 1; }
+    .contact-item { padding: 12px 16px; border-bottom: 1px solid #eee; cursor: pointer; display: flex; justify-content: space-between; align-items: center; }
+    .contact-item:hover { background: #f1f1f1; }
+    .contact-item.active { background: #e0e0e0; }
+    .online-indicator { width: 10px; height: 10px; background-color: #ccc; border-radius: 50%; }
+    .online-indicator.online { background-color: #28a745; }
+    .incoming-call-toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); z-index: 1200; }
+    @media (max-width: 767.98px) {
+      .sidebar { position: absolute; left: 0; top: 0; bottom: 0; z-index: 10; transform: translateX(-100%); padding-top: 60px; /* Jarak dari header */ }
+      .main-container.sidebar-visible .sidebar { transform: translateX(0); }
+      .app-header .btn { padding: 4px 8px; }
+      .app-header .material-icons { font-size: 20px; }
+      .app-header h5 { max-width: calc(100vw - 160px); font-size: 1rem; }
+    }
+  </style>
+</head>
+<body>
+  <header class="app-header">
+    <a href="javascript:void(0)" class="text-white me-3 d-md-none" onclick="toggleSidebar()"><i class="material-icons">menu</i></a>
+    <a href="index.html" class="text-white me-2" title="Beranda"><i class="material-icons">home</i></a>
+    <h5 class="mb-0" id="chat-header">Pilih Kontak</h5>
+    <div class="ms-auto d-flex align-items-center">
+      <button id="videoCallBtn" class="btn btn-light me-1" disabled><i class="material-icons">videocam</i></button>
+      <button id="voiceCallBtn" class="btn btn-light" disabled><i class="material-icons">call</i></button>
+    </div>
+  </header>
+
+  <div class="main-container">
+    <div class="sidebar">
+      <div class="p-3 border-bottom">
+        <div class="d-flex justify-content-between align-items-center">
+            <small>ID Anda: <b id="my-id"></b></small>
+            <button class="btn btn-sm btn-outline-secondary py-0 px-1" onclick="copyMyId()" title="Salin ID"><i class="material-icons" style="font-size: 14px;">content_copy</i></button>
+        </div>
+        <div class="input-group mt-2">
+          <input type="text" id="add-contact-id" class="form-control form-control-sm" placeholder="Masukkan ID Kontak">
+          <button class="btn btn-sm btn-outline-secondary" type="button" id="add-contact-btn">
+            <i class="material-icons" style="font-size: 18px;">add</i>
+          </button>
+        </div>
+      </div>
+      <div class="contact-list" id="contact-list">
+        <p class="text-center text-muted p-3">Tidak ada kontak.</p>
+      </div>
+      <!-- Typing Indicator -->
+      <div id="typing-indicator-container" class="p-2 border-top" style="display: none;">
+          <small class="text-muted fst-italic">
+              <span id="typing-partner-id"></span> sedang mengetik...
+          </small>
+      </div>
+    </div>
+
+    <div class="chat-window">
+      <div id="messages" class="messages">
+        <p class="text-center text-muted">Pilih kontak dari daftar untuk memulai percakapan.</p>
+      </div>
+      <div class="message-input">
+        <form id="message-form" class="input-group">
+          <input id="message-text" class="form-control" type="text" placeholder="Ketik pesan..." autocomplete="off" disabled>
+          <label for="file-input" class="btn btn-outline-secondary mb-0 d-flex align-items-center">
+            <i class="material-icons">attach_file</i>
+          </label>
+          <input type="file" id="file-input" style="display: none;">
+          <button id="sendBtn" class="btn btn-primary" type="submit" disabled><i class="material-icons">send</i></button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Video UI -->
+  <div id="video-container" class="video-container">
+    <video id="remoteVideo" autoplay playsinline></video>
+    <video id="localVideo" autoplay playsinline muted></video>
+    <div class="call-controls">
+      <button id="endCallBtn" class="btn btn-danger">Tutup Panggilan</button>
+    </div>
+  </div>
+
+  <!-- Toast Panggilan Masuk -->
+  <div id="incomingCallToast" class="toast incoming-call-toast" role="alert" aria-live="assertive" aria-atomic="true">
+    <div class="toast-header">
+      <strong class="me-auto">Panggilan Masuk</strong>
+      <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button>
+    </div>
+    <div class="toast-body">
+      <span id="caller-id"></span> mengajak Anda untuk panggilan.
+      <div class="mt-2 pt-2 border-top">
+        <button type="button" id="answer-call-btn" class="btn btn-success btn-sm">Jawab</button>
+        <button type="button" id="reject-call-btn" class="btn btn-danger btn-sm">Tolak</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Firebase SDK -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  <script type="module">
+    // Import fungsi yang diperlukan dari SDK
+    // ... (kode impor firebase tetap sama)
+    import { initializeApp } from 'https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js';
+    import { getFirestore, collection, addDoc, query, orderBy, onSnapshot, serverTimestamp, doc, setDoc, getDoc, updateDoc, deleteDoc, arrayUnion, getDocs } from 'https://www.gstatic.com/firebasejs/12.2.1/firebase-firestore.js';
+    // Hapus impor Firebase Storage karena tidak digunakan lagi untuk file sharing
+
+    // Konfigurasi Firebase Anda
+    const firebaseConfig = {
+      // ... (konfigurasi Anda tetap sama)
+      apiKey: "AIzaSyDaTTWL1DBPk1AFReud-2jeFq68vnjn5cw",
+      authDomain: "app-keuangan-nopi.firebaseapp.com",
+      projectId: "app-keuangan-nopi",
+      storageBucket: "app-keuangan-nopi.firebasestorage.app",
+      messagingSenderId: "978916150187",
+      appId: "1:978916150187:web:ac66a8cba83fe173d620ee"
+    };
+
+    // Inisialisasi Firebase
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+
+    // --- MANAJEMEN PENGGUNA & UI ---
+    const myId = getOrSetUserId();
+    document.getElementById('my-id').textContent = myId;
+
+    const messagesEl = document.getElementById('messages');
+    const messageForm = document.getElementById('message-form');
+    const messageText = document.getElementById('message-text');
+    const sendBtn = document.getElementById('sendBtn');
+    const contactListEl = document.getElementById('contact-list');
+    const addContactBtn = document.getElementById('add-contact-btn');
+    const addContactIdInput = document.getElementById('add-contact-id');
+    const fileInput = document.getElementById('file-input');
+    const typingIndicatorContainer = document.getElementById('typing-indicator-container');
+    const typingPartnerIdEl = document.getElementById('typing-partner-id');
+
+    let activeChatPartner = null;
+    let messageUnsubscribe = null;
+    let contacts = [];
+
+    // --- AUDIO NOTIFIKASI ---
+    const notificationSound = new Audio('data:audio/mpeg;base64,SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2ZjU4LjQ1LjEwMAAAAAAAAAAAAAAA//tAwAAAAAAAAAAAAAAAAAAAAAAAAB4cHJvYwAAAAwAAAAAMjU2ODAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDA-');
+    const ringtoneSound = new Audio('data:audio/mpeg;base64,SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2ZjU4LjQ1LjEwMAAAAAAAAAAAAAAA//tAwAAAAAAAAAAAAAAAAAAAAAAAAB4cHJvYwAAAAwAAAAAMjU2ODAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDA');
+    ringtoneSound.loop = true;
+
+    function getOrSetUserId() {
+      // Gunakan localStorage agar ID tetap tersimpan selamanya
+      let id = localStorage.getItem('nopifin-chat-userid');
+      if (!id) {
+        // Minta pengguna untuk memasukkan ID mereka sendiri
+        id = prompt("Selamat datang! Silakan buat ID Pengguna Anda (contoh: nama Anda atau angka unik). ID ini akan disimpan permanen di perangkat ini.");
+        if (!id) { // Jika pengguna membatalkan atau tidak mengisi
+            id = 'User' + Date.now(); // Buat ID darurat
+        }
+        localStorage.setItem('nopifin-chat-userid', id);
+      }
+      return id;
+    }
+
+    function escapeHtml(s) {
+      return String(s).replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[m]);
+    }
+
+    function toggleSidebar() {
+      document.querySelector('.main-container').classList.toggle('sidebar-visible');
+    }
+    window.toggleSidebar = toggleSidebar;
+
+    // --- FUNGSI UTILITAS ---
+    function copyMyId() {
+        navigator.clipboard.writeText(myId).then(() => {
+            showToast(`ID "${myId}" telah disalin!`, 'success');
+        }, () => {
+            showToast('Gagal menyalin ID.', 'danger');
+        });
+    }
+    window.copyMyId = copyMyId;
+
+    function showToast(message, type = 'info') {
+        let toastContainer = document.getElementById('toast-container-main');
+        if (!toastContainer) {
+            toastContainer = document.createElement('div');
+            toastContainer.id = 'toast-container-main';
+            toastContainer.className = 'toast-container position-fixed top-0 end-0 p-3';
+            toastContainer.style.zIndex = "1300";
+            document.body.appendChild(toastContainer);
+        }
+        
+        const toastEl = document.createElement('div');
+        toastEl.className = `toast align-items-center text-white bg-${type} border-0`;
+        toastEl.setAttribute('role', 'alert');
+        toastEl.innerHTML = `
+            <div class="d-flex">
+                <div class="toast-body">${message}</div>
+                <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+            </div>
+        `;
+        toastContainer.appendChild(toastEl);
+        new bootstrap.Toast(toastEl, { delay: 3000 }).show();
+    }
+
+    // --- MANAJEMEN KONTAK ---
+    // Reset notifikasi saat halaman chat dibuka
+    localStorage.setItem('unreadChatCount', '0');
+
+    // "Unlock" audio context pada interaksi pertama
+    function unlockAudio() {
+        notificationSound.play().then(() => notificationSound.pause()).catch(()=>{});
+        ringtoneSound.play().then(() => ringtoneSound.pause()).catch(()=>{});
+        document.body.removeEventListener('click', unlockAudio);
+    }
+    document.body.addEventListener('click', unlockAudio, { once: true });
+
+    async function addContact() {
+      const contactId = addContactIdInput.value.trim();
+      if (!contactId || contactId === myId) {
+        alert("ID Kontak tidak valid.");
+        return;
+      }
+      if (contacts.includes(contactId)) {
+        alert("Kontak sudah ada di daftar.");
+        return;
+      }
+
+      // Cek apakah user ada di 'users' collection
+      await addContactById(contactId);
+      addContactIdInput.value = '';
+    }
+
+    async function addContactById(contactId, partnerId = null) {
+      // Tambahkan kontak ke daftar kita
+      const myContactsDoc = doc(db, 'contacts', myId);
+      await setDoc(myContactsDoc, { users: arrayUnion(contactId) }, { merge: true });
+
+      // Minta kontak lain untuk menambahkan kita
+      if (partnerId) {
+        const theirContactsDoc = doc(db, 'contacts', partnerId);
+        await setDoc(theirContactsDoc, { users: arrayUnion(myId) }, { merge: true });
+      }
+      loadContacts();
+    }
+
+    async function loadContacts() {
+      const myContactsDoc = await getDoc(doc(db, 'contacts', myId));
+      if (myContactsDoc.exists()) {
+        contacts = myContactsDoc.data().users || [];
+        renderContacts();
+      }
+    }
+
+    function renderContacts() {
+      if (contacts.length === 0) {
+        contactListEl.innerHTML = '<p class="text-center text-muted p-3">Tidak ada kontak.</p>';
+        return;
+      }
+      contactListEl.innerHTML = '';
+      contacts.forEach(contactId => {
+        const div = document.createElement('div');
+        div.className = 'contact-item';
+        div.dataset.id = contactId;
+        div.innerHTML = `
+          <span>${contactId}</span>
+          <div class="online-indicator" id="status-${contactId}"></div>
+        `;
+        div.onclick = () => startChat(contactId);
+        contactListEl.appendChild(div);
+      });
+    }
+
+    addContactBtn.onclick = addContact;
+    loadContacts();
+
+    // --- PRESENCE SYSTEM (STATUS ONLINE) ---
+    const userStatusRef = doc(db, 'users', myId);
+    setDoc(userStatusRef, { online: true, lastSeen: serverTimestamp() }, { merge: true });
+    window.onbeforeunload = () => {
+      setDoc(userStatusRef, { online: false, lastSeen: serverTimestamp() }, { merge: true });
+    };
+
+    onSnapshot(collection(db, 'users'), (snapshot) => {
+      snapshot.docChanges().forEach((change) => {
+        const userData = change.doc.data();
+        const userId = change.doc.id;
+        const statusIndicator = document.getElementById(`status-${userId}`);
+        if (statusIndicator) {
+          statusIndicator.classList.toggle('online', userData.online);
+        }
+      });
+    });
+
+    // --- CHAT REALTIME DENGAN FIRESTORE ---
+    function getChatRoomId(id1, id2) {
+      return [id1, id2].sort().join('_');
+    }
+
+    function startChat(partnerId) {
+      activeChatPartner = partnerId;
+      document.getElementById('chat-header').textContent = `Chat dengan ${partnerId}`;
+      messageText.disabled = false;
+      sendBtn.disabled = false;
+      videoCallBtn.disabled = false;
+      voiceCallBtn.disabled = false;
+
+      document.querySelectorAll('.contact-item').forEach(el => {
+        el.classList.toggle('active', el.dataset.id === partnerId);
+      });
+
+      if (messageUnsubscribe) messageUnsubscribe();
+
+      const roomId = getChatRoomId(myId, partnerId);
+      const messagesRef = collection(db, 'chatRooms', roomId, 'messages');
+      const q = query(messagesRef, orderBy('createdAt'));
+
+      // Listen for typing status
+      const roomDocRef = doc(db, 'chatRooms', roomId);
+      onSnapshot(roomDocRef, (doc) => {
+          const data = doc.data();
+          if (data && data.typing && data.typing[partnerId]) {
+              typingPartnerIdEl.textContent = partnerId;
+              typingIndicatorContainer.style.display = 'block';
+          } else {
+              typingIndicatorContainer.style.display = 'none';
+          }
+      });
+
+      messageUnsubscribe = onSnapshot(q, (snapshot) => {
+        messagesEl.innerHTML = '';
+        if (snapshot.empty) {
+          messagesEl.innerHTML = '<p class="text-center text-muted">Mulai percakapan...</p>';
+        }
+        let newMessages = false;
+        snapshot.docChanges().forEach(change => {
+            if (change.type === "added") {
+                const msg = change.doc.data();
+                if (msg.senderId !== myId) newMessages = true;
+            }
+        });
+
+        snapshot.forEach(doc => {
+          const msg = doc.data();
+          const isSent = msg.senderId === myId;
+          let messageContent = '';
+
+          if (msg.type === 'image') {
+            messageContent = `<img src="${escapeHtml(msg.url)}" alt="Gambar">`;
+          } else if (msg.type === 'video') {
+            messageContent = `<video src="${escapeHtml(msg.url)}" controls></video>`;
+          } else if (msg.type === 'file') {
+            messageContent = `
+              <div class="file-attachment">
+                <i class="material-icons" style="vertical-align: middle;">description</i>
+                <a href="${escapeHtml(msg.url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(msg.fileName)}</a>
+              </div>
+            `;
+          } else {
+            // Pesan teks biasa
+            messageContent = escapeHtml(msg.text);
+          }
+
+          const div = document.createElement('div');
+          div.className = `message ${isSent ? 'sent' : 'received'}`;
+          div.innerHTML = `
+            <div>
+              ${!isSent ? `<div class="message-sender">${escapeHtml(msg.senderId)}</div>` : ''}
+              <div class="message-bubble">
+                ${messageContent}
+              </div>
+            </div>
+          `;
+          messagesEl.appendChild(div);
+        });
+        messagesEl.scrollTop = messagesEl.scrollHeight;
+
+        // Mainkan suara jika ada pesan baru dari partner yang sedang aktif
+        if (newMessages) {
+            notificationSound.play().catch(e => console.warn("Gagal memainkan suara notifikasi:", e));
+        }
+
+        // Reset notifikasi untuk partner ini
+        resetUnreadCount(partnerId);
+      });
+
+      if (window.innerWidth <= 768) {
+        toggleSidebar();
+      }
+    }
+
+    messageForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const text = messageText.value.trim();
+      if (text && activeChatPartner) {
+        const roomId = getChatRoomId(myId, activeChatPartner);
+
+        // Jika partner belum ada di kontak, tambahkan secara otomatis
+        if (!contacts.includes(activeChatPartner)) {
+            await addContactById(activeChatPartner, activeChatPartner);
+            // Juga tambahkan diri kita ke daftar kontak mereka
+            const theirContactsDoc = doc(db, 'contacts', activeChatPartner);
+            await setDoc(theirContactsDoc, { users: arrayUnion(myId) }, { merge: true });
+        }
+        const messagesRef = collection(db, 'chatRooms', roomId, 'messages');
+        await addDoc(messagesRef, {
+          type: 'text',
+          text: text,
+          senderId: myId,
+          createdAt: serverTimestamp()
+        });
+        messageText.value = '';
+        updateTypingStatus(false); // Berhenti mengetik setelah mengirim
+      }
+    });
+
+    // --- FUNGSI KIRIM FILE ---
+    fileInput.addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (file && activeChatPartner) {
+        uploadFile(file);
+      }
+      // Reset input agar bisa memilih file yang sama lagi
+      e.target.value = '';
+    });
+
+    // --- FUNGSI INDIKATOR MENGETIK ---
+    let typingTimeout;
+
+    async function updateTypingStatus(isTyping) {
+        if (!activeChatPartner) return;
+        const roomId = getChatRoomId(myId, activeChatPartner);
+        const roomDocRef = doc(db, 'chatRooms', roomId);
+        
+        const typingUpdate = {};
+        typingUpdate[`typing.${myId}`] = isTyping;
+        await setDoc(roomDocRef, typingUpdate, { merge: true });
+    }
+
+    messageText.addEventListener('input', () => {
+        clearTimeout(typingTimeout);
+        updateTypingStatus(true);
+        typingTimeout = setTimeout(() => updateTypingStatus(false), 2000); // Berhenti setelah 2 detik tidak aktif
+    });
+
+
+    // --- FUNGSI KIRIM FILE VIA CLOUDINARY ---
+    async function uploadFile(file) {
+      const CLOUD_NAME = "dwv6zczvu";
+      const UPLOAD_PRESET = "nopifin_chat_files"; // Ganti jika nama preset Anda berbeda
+      const url = `https://api.cloudinary.com/v1_1/${CLOUD_NAME}/upload`;
+
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('upload_preset', UPLOAD_PRESET);
+
+      // Buat elemen progress bar sementara
+      const progressId = `progress-${Date.now()}`;
+      const progressDiv = document.createElement('div');
+      progressDiv.className = 'message sent';
+      progressDiv.innerHTML = `
+        <div class="message-bubble" style="position: relative; overflow: hidden;">
+          Mengunggah file...
+          <div id="${progressId}" class="upload-progress"></div>
+        </div>
+      `;
+      messagesEl.appendChild(progressDiv);
+      messagesEl.scrollTop = messagesEl.scrollHeight;
+
+      try {
+        const response = await fetch(url, {
+          method: 'POST',
+          body: formData
+        });
+
+        if (!response.ok) throw new Error('Gagal mengunggah file.');
+
+        const data = await response.json();
+        const downloadURL = data.secure_url;
+        const fileType = data.resource_type === 'image' ? 'image' : data.resource_type === 'video' ? 'video' : 'file';
+
+        const roomId = getChatRoomId(myId, activeChatPartner);
+        const messagesRef = collection(db, 'chatRooms', roomId, 'messages');
+        await addDoc(messagesRef, { 
+            type: fileType, 
+            url: downloadURL, 
+            fileName: file.name, 
+            senderId: myId, 
+            createdAt: serverTimestamp() 
+        });
+
+      } catch (error) {
+        console.error("Upload failed:", error);
+        showToast('Gagal mengunggah file.', 'danger');
+      } finally {
+        progressDiv.remove();
+      }
+    }
+
+    // --- SISTEM NOTIFIKASI PESAN BELUM DIBACA ---
+    function updateUnreadCount(partnerId) {
+        const unread = JSON.parse(localStorage.getItem('unreadMessages') || '{}');
+        unread[partnerId] = (unread[partnerId] || 0) + 1;
+        localStorage.setItem('unreadMessages', JSON.stringify(unread));
+        updateTotalUnreadCount();
+    }
+
+    function resetUnreadCount(partnerId) {
+        const unread = JSON.parse(localStorage.getItem('unreadMessages') || '{}');
+        delete unread[partnerId];
+        localStorage.setItem('unreadMessages', JSON.stringify(unread));
+        updateTotalUnreadCount();
+    }
+
+    function updateTotalUnreadCount() {
+        const unread = JSON.parse(localStorage.getItem('unreadMessages') || '{}');
+        const total = Object.values(unread).reduce((sum, count) => sum + count, 0);
+        localStorage.setItem('unreadChatCount', total);
+    }
+
+    // Dengarkan semua pesan untuk notifikasi global
+    // Ini adalah listener yang lebih baik untuk notifikasi global
+    const allMessagesQuery = query(collection(db, 'chatRooms'));
+    onSnapshot(allMessagesQuery, (snapshot) => {
+        snapshot.docChanges().forEach(async (change) => {
+            if (change.type === 'modified') { // Cek saat ada pesan baru di sebuah room
+                const roomData = change.doc.data();
+                // Logika sederhana: jika ada perubahan, kita asumsikan ada pesan baru.
+                // Anda bisa membuat ini lebih canggih dengan membandingkan timestamp.
+            }
+        });
+    });
+
+
+    // --- PANGGILAN VIDEO/SUARA DENGAN WEBRTC & FIRESTORE SIGNALING ---
+    const videoContainer = document.getElementById('video-container');
+    const localVideo = document.getElementById('localVideo');
+    const remoteVideo = document.getElementById('remoteVideo');
+    const videoCallBtn = document.getElementById('videoCallBtn');
+    const voiceCallBtn = document.getElementById('voiceCallBtn');
+    const endCallBtn = document.getElementById('endCallBtn');
+    const incomingCallToastEl = document.getElementById('incomingCallToast');
+    const incomingCallToast = new bootstrap.Toast(incomingCallToastEl);
+
+    // Konfigurasi ICE servers dengan STUN dan fallback TURN
+    // CATATAN: Server TURN publik ini hanya untuk development.
+    // Untuk produksi, gunakan layanan TURN server Anda sendiri atau yang berbayar.
+    const servers = { 
+      iceServers: [
+        { urls: 'stun:stun.l.google.com:19302' },
+        { urls: 'stun:stun1.l.google.com:19302' },
+        { urls: "turn:openrelay.metered.ca:80", username: "openrelayproject", credential: "openrelayproject" }
+      ] 
+    };
+    let pc = new RTCPeerConnection(servers);
+    let localStream = null;
+    let remoteStream = null;
+    let callUnsubscribe = null;
+    let currentCaller = null;
+    
+
+    // Dengarkan panggilan masuk
+    const callDocRef = doc(db, 'calls', myId);
+    onSnapshot(callDocRef, (snapshot) => {
+      const data = snapshot.data();
+      if (data && data.offer) {
+        document.getElementById('caller-id').textContent = data.callerId;
+        currentCaller = data.callerId;
+
+        // Cek apakah sudah ada panggilan aktif
+        if (localStream) {
+            // Otomatis tolak jika sedang dalam panggilan lain
+            console.log("Menolak panggilan masuk karena sedang dalam panggilan lain.");
+            rejectCall(true); // Tolak secara diam-diam
+            return;
+        }
+
+        ringtoneSound.play().catch(e => console.warn("Gagal memainkan nada dering:", e));
+        incomingCallToast.show();
+      }
+    });
+
+    // Fungsi untuk memulai panggilan
+    const startCall = async (isVideo) => {
+      if (!activeChatPartner) return alert("Pilih kontak untuk dipanggil.");
+
+      // Jika partner belum ada di kontak, tambahkan secara otomatis
+      if (!contacts.includes(activeChatPartner)) {
+          await addContactById(activeChatPartner, activeChatPartner);
+          // Juga tambahkan diri kita ke daftar kontak mereka
+          const theirContactsDoc = doc(db, 'contacts', activeChatPartner);
+          await setDoc(theirContactsDoc, { users: arrayUnion(myId) }, { merge: true });
+      }
+
+      const callDoc = doc(db, 'calls', activeChatPartner);
+      const offerCandidates = collection(callDoc, 'offerCandidates');
+
+      // Reset PeerConnection
+      pc.close();
+      pc = new RTCPeerConnection(servers);
+
+      pc.onicecandidate = event => {
+        event.candidate && addDoc(offerCandidates, event.candidate.toJSON());
+      };
+
+      // Batasi resolusi video saat memulai panggilan
+      const videoConstraints = isVideo ? {
+          width: { ideal: 640, max: 1280 },
+          height: { ideal: 480, max: 720 },
+          frameRate: { ideal: 15, max: 30 }
+      } : false;
+
+      try {
+        localStream = await navigator.mediaDevices.getUserMedia({ video: videoConstraints, audio: true });
+      } catch (err) {
+        console.error("Gagal mendapatkan media:", err);
+        showToast("Tidak bisa mengakses kamera/mikrofon.", "danger");
+        endCall(); // Batalkan panggilan jika media tidak tersedia
+        return;
+      }
+      remoteStream = new MediaStream();
+      localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
+
+      pc.ontrack = event => {
+        event.streams[0].getTracks().forEach(track => remoteStream.addTrack(track));
+      };
+
+      localVideo.srcObject = localStream;
+      remoteVideo.srcObject = remoteStream;
+      videoContainer.style.display = 'block';
+
+      // Konfigurasi adaptasi jaringan dan prioritas audio
+      const videoSender = pc.getSenders().find(s => s.track?.kind === 'video');
+      if (videoSender) {
+          const parameters = videoSender.getParameters();
+          if (!parameters.encodings) {
+              parameters.encodings = [{}];
+          }
+          // Prioritaskan audio, turunkan kualitas video jika perlu
+          parameters.encodings[0].degradationPreference = 'maintain-framerate'; // atau 'balanced'
+          // Batasi bitrate maksimum untuk video
+          parameters.encodings[0].maxBitrate = 800 * 1000; // 800 kbps
+          
+          await videoSender.setParameters(parameters);
+      }
+
+      const offerDescription = await pc.createOffer();
+      await pc.setLocalDescription(offerDescription);
+
+      const offer = { sdp: offerDescription.sdp, type: offerDescription.type };
+      await setDoc(callDoc, { offer, callerId: myId, calleeId: activeChatPartner });
+
+      callUnsubscribe = onSnapshot(callDoc, (snapshot) => {
+        const data = snapshot.data();
+        if (!pc.currentRemoteDescription && data?.answer) {
+          const answerDescription = new RTCSessionDescription(data.answer);
+          pc.setRemoteDescription(answerDescription);
+        }
+      });
+
+      onSnapshot(collection(db, 'calls', activeChatPartner, 'answerCandidates'), (snapshot) => {
+        snapshot.docChanges().forEach((change) => {
+          if (change.type === 'added') {
+            pc.addIceCandidate(new RTCIceCandidate(change.doc.data()));
+          }
+        });
+      });
+    };
+
+    // Fungsi untuk menjawab panggilan
+    const answerCall = async () => {
+      incomingCallToast.hide();
+      ringtoneSound.pause(); ringtoneSound.currentTime = 0;
+      if (!currentCaller) return;
+
+      // Saat menjawab, otomatis tambahkan penelepon ke kontak jika belum ada
+      if (!contacts.includes(currentCaller)) {
+          await addContactById(currentCaller, currentCaller);
+          // Juga tambahkan diri kita ke daftar kontak mereka
+          const theirContactsDoc = doc(db, 'contacts', currentCaller);
+          await setDoc(theirContactsDoc, { users: arrayUnion(myId) }, { merge: true });
+      }
+
+      const callDoc = doc(db, 'calls', myId);
+      const answerCandidates = collection(callDoc, 'answerCandidates');
+
+      // Reset PeerConnection
+      pc.close();
+      pc = new RTCPeerConnection(servers);
+
+      pc.onicecandidate = event => {
+        event.candidate && addDoc(answerCandidates, event.candidate.toJSON());
+      };
+
+      // Dapatkan stream dengan batasan yang sama
+      const callData = (await getDoc(callDoc)).data();
+      const isVideoCall = callData.offer.sdp.includes('m=video'); // Cek apakah ini video call
+      const videoConstraints = isVideoCall ? {
+          width: { ideal: 640, max: 1280 },
+          height: { ideal: 480, max: 720 },
+          frameRate: { ideal: 15, max: 30 }
+      } : false;
+
+      try {
+        localStream = await navigator.mediaDevices.getUserMedia({ video: videoConstraints, audio: true });
+      } catch (err) {
+        console.error("Gagal mendapatkan media:", err);
+        showToast("Tidak bisa mengakses kamera/mikrofon.", "danger");
+        return;
+      }
+      remoteStream = new MediaStream();
+      localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
+
+      pc.ontrack = event => {
+        event.streams[0].getTracks().forEach(track => remoteStream.addTrack(track));
+      };
+
+      localVideo.srcObject = localStream;
+      remoteVideo.srcObject = remoteStream;
+      videoContainer.style.display = 'block';
+
+      const offerDescription = callData.offer;
+      await pc.setRemoteDescription(new RTCSessionDescription(offerDescription));
+
+      const answerDescription = await pc.createAnswer();
+      await pc.setLocalDescription(answerDescription);
+
+      const answer = { type: answerDescription.type, sdp: answerDescription.sdp };
+      await updateDoc(callDoc, { answer });
+
+      onSnapshot(collection(db, 'calls', myId, 'offerCandidates'), (snapshot) => {
+        snapshot.docChanges().forEach((change) => {
+          if (change.type === 'added') {
+            pc.addIceCandidate(new RTCIceCandidate(change.doc.data()));
+          }
+        });
+      });
+    };
+
+    const rejectCall = async (silent = false) => {
+      incomingCallToast.hide();
+      ringtoneSound.pause(); ringtoneSound.currentTime = 0;
+      const callDoc = doc(db, 'calls', myId);
+      if (!silent) showToast(`Panggilan dari ${currentCaller} ditolak.`, 'info');
+      await updateDoc(callDoc, { offer: null, callerId: null, calleeId: null }); // Hapus offer
+      currentCaller = null;
+    };
+
+    // Fungsi untuk mengakhiri panggilan
+    const endCall = async () => {
+      ringtoneSound.pause(); ringtoneSound.currentTime = 0;
+      if (localStream) {
+        localStream.getTracks().forEach(track => track.stop());
+      }
+      localStream = null; // Reset stream
+      if (pc) {
+        pc.close();
+        pc = new RTCPeerConnection(servers);
+      }
+
+      videoContainer.style.display = 'none';
+      localVideo.srcObject = null;
+      remoteVideo.srcObject = null;
+
+      const callee = activeChatPartner || currentCaller;
+      if (callee) {
+        const callDoc = doc(db, 'calls', callee);
+        if ((await getDoc(callDoc)).exists()) await deleteDoc(callDoc);
+      }
+      const myCallDoc = doc(db, 'calls', myId);
+      if ((await getDoc(myCallDoc)).exists()) await deleteDoc(myCallDoc);
+
+      if (callUnsubscribe) {
+        callUnsubscribe();
+        callUnsubscribe = null;
+      }
+
+      activeChatPartner = null;
+      currentCaller = null;
+    };
+
+    // Event Listeners
+    videoCallBtn.onclick = () => startCall(true);
+    voiceCallBtn.onclick = () => startCall(false);
+    endCallBtn.onclick = endCall;
+    document.getElementById('answer-call-btn').onclick = answerCall;
+    document.getElementById('reject-call-btn').onclick = rejectCall;
+
+  </script>
+</body>
+</html>
