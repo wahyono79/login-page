@@ -28,10 +28,10 @@
       --card: #fff;
     }
     html, body { height: 100%; overflow: hidden; }
-    body { background: var(--background); display: flex; flex-direction: column; }
+    body { background-color: var(--background); display: flex; flex-direction: column; }
     .app-header { position: fixed; top: 0; left: 0; right: 0; height: 60px; background: #013220; color: #fff; display: flex; align-items: center; padding: 0 8px; z-index: 1000; }
     .main-container { display: flex; flex: 1; overflow: hidden; padding-top: 60px; height: 100%; }
-    .sidebar { width: 300px; border-right: 1px solid #dee2e6; display: flex; flex-direction: column; background: var(--card); transition: transform 0.3s ease-in-out; }
+    .sidebar { width: 300px; border-right: 1px solid #dee2e6; display: flex; flex-direction: column; background-color: var(--card); transition: transform 0.3s ease-in-out; flex-shrink: 0; }
     .chat-window { flex: 1; display: flex; flex-direction: column; position: relative; height: 100%; }
     .messages { flex: 1; padding: 16px; overflow-y: auto; }
     .message-input { flex-shrink: 0; border-top: 1px solid #dee2e6; padding: 10px; background: var(--card); }
@@ -66,12 +66,24 @@
     .online-indicator.online { background-color: #28a745; }
     .unread-badge { background-color: #dc3545; color: white; border-radius: 50%; padding: 2px 6px; font-size: 0.7rem; font-weight: bold; margin-left: 8px; }
     .incoming-call-toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); z-index: 1200; }
+    .sidebar-overlay { display: none; }
+
     @media (max-width: 767.98px) {
-      .sidebar { position: absolute; left: 0; top: 0; bottom: 0; z-index: 10; transform: translateX(-100%); padding-top: 60px; /* Jarak dari header */ }
-      .main-container.sidebar-visible .sidebar { transform: translateX(0); }
+      .sidebar { 
+        position: fixed; /* Ubah ke fixed agar tidak mendorong konten lain */
+        left: 0; top: 0; bottom: 0; 
+        width: 85%; /* Gunakan persentase agar fleksibel */
+        max-width: 300px; /* Batasi lebar maksimum */
+        z-index: 1050; /* Pastikan di atas konten lain */
+        transform: translateX(-100%); 
+        padding-top: 60px; /* Jarak dari header */
+        border-right: 1px solid #dee2e6;
+      }
+      .main-container.sidebar-visible .sidebar { transform: translateX(0); box-shadow: 0 0 15px rgba(0,0,0,0.2); }
+      .sidebar-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 1040; display: none; }
+      .main-container.sidebar-visible .sidebar-overlay { display: block; }
       .app-header .btn { padding: 4px 8px; }
       .app-header .material-icons { font-size: 20px; }
-      .app-header h5 { max-width: calc(100vw - 160px); font-size: 1rem; }
     }
   </style>
 </head>
@@ -87,6 +99,7 @@
   </header>
 
   <div class="main-container">
+    <div class="sidebar-overlay d-md-none" onclick="toggleSidebar()"></div>
     <div class="sidebar">
       <div class="p-3 border-bottom">
         <div class="d-flex justify-content-between align-items-center">
@@ -265,13 +278,11 @@
     // "Unlock" audio context pada interaksi pertama
     function unlockAudio() {
         notificationSound.play().then(() => notificationSound.pause()).catch(()=>{});
+        notificationSound.muted = false; // Pastikan tidak di-mute
         ringtoneSound.play().then(() => ringtoneSound.pause()).catch(()=>{});
         document.body.removeEventListener('click', unlockAudio);
     }
-    // Ganti event listener 'click' dengan 'mousedown' atau 'touchstart' untuk cakupan yang lebih luas
-    // dan pastikan audio tidak di-mute.
-    document.body.addEventListener('mousedown', unlockAudio, { once: true });
-    document.body.addEventListener('touchstart', unlockAudio, { once: true });
+    document.body.addEventListener('click', unlockAudio, { once: true });
 
     async function addContact() {
       const contactId = addContactIdInput.value.trim();
@@ -286,8 +297,29 @@
         return;
       }
 
-      await ensureContactExists(contactId);
-      startChat(contactId);
+      // Mulai chat terlebih dahulu untuk membuka UI
+      startChat(contactId); 
+
+      // Kirim pesan perkenalan otomatis
+      const roomId = getChatRoomId(myId, contactId);
+      const messagesRef = collection(db, 'chatRooms', roomId, 'messages');
+      
+      try {
+        await addDoc(messagesRef, {
+          type: 'text',
+          text: 'Halo! Saya telah menambahkan Anda ke kontak.',
+          deleted: false,
+          senderId: myId,
+          senderName: myId, // Tambahkan nama pengirim (atau ID jika nama belum diatur)
+          createdAt: serverTimestamp()
+        });
+        // Pastikan kontak ada di kedua sisi setelah pesan terkirim
+        await ensureContactExists(contactId);
+      } catch (error) {
+        console.error("Gagal mengirim pesan perkenalan:", error);
+        showToast("Gagal memulai obrolan.", "danger");
+      }
+
       addContactIdInput.value = '';
     }
 
@@ -544,6 +576,7 @@
           text: text,
           deleted: false, // Tambahkan properti 'deleted'
           senderId: myId,
+          senderName: myId, // Tambahkan nama pengirim
           createdAt: serverTimestamp()
         });
         messageText.value = '';
@@ -603,6 +636,7 @@
             fileName: file.name, 
             deleted: false, // Tambahkan properti 'deleted'
             senderId: myId, 
+            senderName: myId, // Tambahkan nama pengirim
             createdAt: serverTimestamp() 
         });
 

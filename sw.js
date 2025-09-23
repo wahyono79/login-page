@@ -45,8 +45,20 @@ self.addEventListener('activate', event => {
 
 // 3. Fetch (Mengambil) Request
 self.addEventListener('fetch', event => {
+    // Strategi: Network falling back to cache
+    // Coba ambil dari jaringan dulu, jika gagal (offline), baru ambil dari cache.
+    // Ini bagus untuk aset yang sering berubah seperti HTML.
     event.respondWith(
-        caches.match(event.request)
-            .then(response => response || fetch(event.request))
+        fetch(event.request).catch(() => {
+            // Jika fetch gagal (misalnya, tidak ada koneksi jaringan),
+            // coba cari respons yang cocok di dalam cache.
+            return caches.match(event.request).then(response => {
+                if (response) {
+                    return response; // Kembalikan dari cache jika ditemukan
+                }
+                // Jika tidak ada di cache juga, permintaan akan gagal secara alami.
+                // Ini penting untuk request non-aset (seperti API call ke Firestore)
+            });
+        })
     );
 });

@@ -16,6 +16,12 @@
         .bg-light-green { background-color: #648c66; }
         .bg-green-gradient { background: linear-gradient(135deg, #013220, #648c66); }
 
+        /* Reset dasar untuk tata letak yang lebih andal */
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
         body {
             font-family: 'Inter', sans-serif;
             background-color: #f0f4f8; /* Fallback background */
@@ -90,6 +96,7 @@
             justify-content: center;
             z-index: 1000;
             opacity: 0;
+            padding: 1rem; /* Beri sedikit padding untuk mencegah modal menempel di tepi layar */
             visibility: hidden;
             transition: opacity 0.3s ease, visibility 0.3s ease;
         }
@@ -140,7 +147,7 @@
             z-index: -1;
         }
         .splash-logo {
-            font-size: 5.5rem;
+            font-size: clamp(4rem, 15vw, 5.5rem); /* Ukuran font responsif */
             font-weight: 800;
             color: white;
             margin-bottom: 1.5rem;
@@ -152,7 +159,7 @@
             text-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
         }
         .splash-tagline {
-            font-size: 1.2rem;
+            font-size: clamp(1rem, 4vw, 1.2rem); /* Ukuran font responsif */
             color: #a8e6cf; /* light-green equivalent */
             margin-bottom: 2.5rem;
             opacity: 0;
@@ -185,10 +192,6 @@
             from { opacity: 0; transform: translateY(20px); }
             to { opacity: 1; transform: translateY(0); }
         }
-        @keyframes splashLoading {
-            0% { transform: translateX(-100%); }
-            100% { transform: translateX(250%); }
-        }
         @media (max-width: 768px) {
             .splash-logo { font-size: 4rem; }
             .splash-tagline { font-size: 1rem; max-width: 90%; }
@@ -209,12 +212,12 @@
 
     <div id="app-content" class="hidden">
     <!-- Fixed Header -->
-    <header class="bg-dark-green shadow-md p-4 text-white fixed top-0 left-0 right-0 z-50">
+    <header class="bg-dark-green shadow-md p-4 text-white fixed top-0 left-0 right-0 z-50 w-full">
         <div class="container mx-auto flex justify-between items-center">
             <h1 class="text-2xl font-bold">Layanan WiFi @LSM</h1>
         </div>
     </header>
-
+    
     <!-- Main Content - Pages -->
     <main class="container mx-auto p-4 md:p-8" style="padding-top: 6rem; padding-bottom: 6rem;">
 
@@ -368,7 +371,7 @@
     
     <!-- Modal Pop-up -->
     <div id="packageModal" class="modal-overlay z-[1001]">
-        <div class="bg-white p-8 rounded-2xl shadow-2xl max-w-sm mx-4 text-center transform transition-transform scale-95">
+        <div class="bg-white p-8 rounded-2xl shadow-2xl w-full max-w-sm text-center transform transition-transform scale-95">
             <h3 class="text-xl font-bold text-dark-green mb-4">Informasi Pembelian</h3>
             <p class="text-gray-600 mb-6">
                 Silahkan membeli paket layanan yang Anda inginkan di <strong>Toko NDCell (Anwar Khadafi Saimona)</strong>.
@@ -381,7 +384,7 @@
 
     <!-- PWA Install Prompt Modal -->
     <div id="pwaInstallModal" class="modal-overlay hidden">
-        <div class="bg-white p-8 rounded-2xl shadow-2xl max-w-sm mx-4 text-center transform transition-transform scale-95">
+        <div class="bg-white p-8 rounded-2xl shadow-2xl w-full max-w-sm text-center transform transition-transform scale-95">
             <h3 class="text-xl font-bold text-dark-green mb-4">Instal Aplikasi</h3>
             <p class="text-gray-600 mb-6">
                 Instal aplikasi ini di perangkat Anda untuk akses yang lebih cepat dan pengalaman terbaik.
