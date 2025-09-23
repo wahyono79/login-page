@@ -24,7 +24,6 @@
     .message.sent { justify-content: flex-end; }
     .message.received { justify-content: flex-start; }
     .message-bubble { padding: 8px 12px; border-radius: 18px; max-width: 75%; }
-    .message-bubble:hover .delete-msg-btn { opacity: 1; }
     .message.sent .message-bubble { background: var(--primary-color); color: #fff; }
     .message.received .message-bubble { background: #e9ecef; color: #212121; }
     .message-sender { font-size: 0.75rem; color: #6c757d; margin: 0 5px 2px; }
@@ -39,11 +38,6 @@
     .app-header h5 { font-size: 1.1rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: calc(100vw - 200px); }
     .app-header .btn { padding: 6px 10px; }
     .app-header .material-icons { font-size: 22px; vertical-align: middle; }
-    .delete-msg-btn { position: absolute; top: -10px; right: -5px; background: #fff; border-radius: 50%; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; box-shadow: 0 1px 3px rgba(0,0,0,0.2); cursor: pointer; opacity: 0; transition: opacity 0.2s; }
-    .delete-msg-btn .material-icons { font-size: 16px; color: #dc3545; }
-    .system-message { text-align: center; font-size: 0.8rem; color: #6c757d; margin: 10px 0; font-style: italic; }
-    .deleted-message { font-style: italic; color: #adb5bd; }
-    .message.sent .deleted-message { color: #e0e0e0; }
     .contact-list { overflow-y: auto; flex: 1; }
     .contact-item { padding: 12px 16px; border-bottom: 1px solid #eee; cursor: pointer; display: flex; justify-content: space-between; align-items: center; }
     .contact-item:hover { background: #f1f1f1; }
@@ -87,12 +81,6 @@
       </div>
       <div class="contact-list" id="contact-list">
         <p class="text-center text-muted p-3">Tidak ada kontak.</p>
-      </div>
-      <!-- Typing Indicator -->
-      <div id="typing-indicator-container" class="p-2 border-top" style="display: none;">
-          <small class="text-muted fst-italic">
-              <span id="typing-partner-id"></span> sedang mengetik...
-          </small>
       </div>
     </div>
 
@@ -173,13 +161,12 @@
     const addContactBtn = document.getElementById('add-contact-btn');
     const addContactIdInput = document.getElementById('add-contact-id');
     const fileInput = document.getElementById('file-input');
-    const typingIndicatorContainer = document.getElementById('typing-indicator-container');
-    const typingPartnerIdEl = document.getElementById('typing-partner-id');
 
     let activeChatPartner = null;
     let messageUnsubscribe = null;
     let contacts = [];
 
+    window.deleteMessage = deleteMessage; // Expose deleteMessage to global scope
     // --- AUDIO NOTIFIKASI ---
     const notificationSound = new Audio('data:audio/mpeg;base64,SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2ZjU4LjQ1LjEwMAAAAAAAAAAAAAAA//tAwAAAAAAAAAAAAAAAAAAAAAAAAB4cHJvYwAAAAwAAAAAMjU2ODAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDA-');
     const ringtoneSound = new Audio('data:audio/mpeg;base64,SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2ZjU4LjQ1LjEwMAAAAAAAAAAAAAAA//tAwAAAAAAAAAAAAAAAAAAAAAAAAB4cHJvYwAAAAwAAAAAMjU2ODAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDA');
@@ -353,22 +340,6 @@
       const messagesRef = collection(db, 'chatRooms', roomId, 'messages');
       const q = query(messagesRef, orderBy('createdAt'));
 
-      // Listen for typing status
-      if (typingUnsubscribe) typingUnsubscribe.typingListener();
-      const roomDocRef = doc(db, 'chatRooms', roomId);
-      onSnapshot(roomDocRef, (doc) => {
-          const data = doc.data();
-          if (data && data.typing && data.typing[partnerId]) {
-              typingPartnerIdEl.textContent = partnerId;
-              typingIndicatorContainer.style.display = 'block';
-          } else {
-              typingIndicatorContainer.style.display = 'none';
-          }
-      });
-
-      if (!typingUnsubscribe) typingUnsubscribe = {};
-      typingUnsubscribe.typingListener = onSnapshot(roomDocRef, (doc) => { /* ... */ });
-
 
       messageUnsubscribe = onSnapshot(q, (snapshot) => {
         messagesEl.innerHTML = '';
@@ -383,16 +354,10 @@
             }
         });
 
-        snapshot.forEach(messageDoc => {
-          const msg = messageDoc.data();
-          const msgId = messageDoc.id;
+        snapshot.forEach(doc => {
+          const msg = doc.data();
           const isSent = msg.senderId === myId;
           let messageContent = '';
-          let deleteButton = '';
-
-          if (isSent && !msg.deleted) {
-            deleteButton = `<div class="delete-msg-btn" onclick="deleteMessage('${msgId}')"><i class="material-icons">delete</i></div>`;
-          }
 
           if (msg.type === 'image') {
             messageContent = `<img src="${escapeHtml(msg.url)}" alt="Gambar">`;
@@ -406,23 +371,17 @@
               </div>
             `;
           } else {
-            if (msg.deleted) {
-                messageContent = `<span class="deleted-message">Pesan ini telah dihapus</span>`;
-            } else if (msg.type === 'system') {
-                messageContent = `<div class="system-message">${escapeHtml(msg.text)}</div>`;
-            } else {
-                messageContent = escapeHtml(msg.text);
-            }
+            // Pesan teks biasa
+            messageContent = escapeHtml(msg.text);
           }
 
           const div = document.createElement('div');
-          div.className = msg.type === 'system' ? 'w-100' : `message ${isSent ? 'sent' : 'received'}`;
+          div.className = `message ${isSent ? 'sent' : 'received'}`;
           div.innerHTML = `
             <div>
               ${!isSent ? `<div class="message-sender">${escapeHtml(msg.senderId)}</div>` : ''}
-              <div class="message-bubble" id="msg-${msgId}">
+              <div class="message-bubble">
                 ${messageContent}
-                ${deleteButton}
               </div>
             </div>
           `;
@@ -461,12 +420,10 @@
         await addDoc(messagesRef, {
           type: 'text',
           text: text,
-          deleted: false,
           senderId: myId,
           createdAt: serverTimestamp()
         });
         messageText.value = '';
-        updateTypingStatus(false); // Berhenti mengetik setelah mengirim
       }
     });
 
@@ -478,36 +435,6 @@
       }
       // Reset input agar bisa memilih file yang sama lagi
       e.target.value = '';
-    });
-
-    // --- FUNGSI INDIKATOR MENGETIK ---
-    let typingTimeout;
-
-    async function updateTypingStatus(isTyping) {
-      if (!activeChatPartner) return;
-      const roomId = getChatRoomId(myId, activeChatPartner);
-      const roomDocRef = doc(db, 'chatRooms', roomId);
-      
-      const typingUpdate = {};
-      typingUpdate[`typing.${myId}`] = isTyping;
-      // Gunakan setDoc dengan merge untuk membuat dokumen jika belum ada
-      await setDoc(roomDocRef, typingUpdate, { merge: true });
-    }
-
-    messageText.addEventListener('input', () => {
-        clearTimeout(typingTimeout);
-        // Kirim status 'true' segera
-        updateTypingStatus(true);
-        // Set timeout untuk mengirim 'false' setelah jeda
-        typingTimeout = setTimeout(() => {
-            updateTypingStatus(false);
-        }, 2000); // Jeda 2 detik
-    });
-
-    messageText.addEventListener('blur', () => {
-        clearTimeout(typingTimeout);
-        updateTypingStatus(true);
-        typingTimeout = setTimeout(() => updateTypingStatus(false), 2000); // Berhenti setelah 2 detik tidak aktif
     });
 
 
@@ -552,7 +479,6 @@
             type: fileType, 
             url: downloadURL, 
             fileName: file.name, 
-            deleted: false,
             senderId: myId, 
             createdAt: serverTimestamp() 
         });
@@ -565,18 +491,6 @@
       }
     }
 
-    // --- FUNGSI HAPUS PESAN ---
-    async function deleteMessage(messageId) {
-        if (!activeChatPartner || !messageId) return;
-        const confirmed = confirm("Apakah Anda yakin ingin menghapus pesan ini?");
-        if (confirmed) {
-            const roomId = getChatRoomId(myId, activeChatPartner);
-            const messageRef = doc(db, 'chatRooms', roomId, 'messages', messageId);
-            await updateDoc(messageRef, {
-                deleted: true
-            });
-        }
-    }
     // --- SISTEM NOTIFIKASI PESAN BELUM DIBACA ---
     function updateUnreadCount(partnerId) {
         const unread = JSON.parse(localStorage.getItem('unreadMessages') || '{}');
@@ -650,17 +564,6 @@
         // Cek apakah sudah ada panggilan aktif
         if (localStream) {
             // Otomatis tolak jika sedang dalam panggilan lain
-            const roomId = getChatRoomId(myId, data.callerId);
-            const messagesRef = collection(db, 'chatRooms', roomId, 'messages');
-            addDoc(messagesRef, {
-                type: 'system',
-                text: `Panggilan tak terjawab dari ${data.callerId}`,
-                createdAt: serverTimestamp()
-            }).catch(err => console.error("Gagal mengirim notif panggilan tak terjawab:", err));
-
-            // Tampilkan toast singkat di sisi penelepon bahwa penerima sibuk
-            // (Ini memerlukan logika tambahan di sisi penelepon)
-
             console.log("Menolak panggilan masuk karena sedang dalam panggilan lain.");
             rejectCall(true); // Tolak secara diam-diam
             return;
@@ -832,16 +735,6 @@
       incomingCallToast.hide();
       ringtoneSound.pause(); ringtoneSound.currentTime = 0;
       const callDoc = doc(db, 'calls', myId);
-      
-      // Kirim notifikasi panggilan tak terjawab jika tidak dijawab (silent=false)
-      if (!silent && currentCaller) {
-          const roomId = getChatRoomId(myId, currentCaller);
-          const messagesRef = collection(db, 'chatRooms', roomId, 'messages');
-          await addDoc(messagesRef, {
-              type: 'system',
-              text: `Panggilan tak terjawab dari ${currentCaller}`
-          });
-      }
       if (!silent) showToast(`Panggilan dari ${currentCaller} ditolak.`, 'info');
       await updateDoc(callDoc, { offer: null, callerId: null, calleeId: null }); // Hapus offer
       currentCaller = null;
