@@ -1,18 +1,3 @@
-// ... existing code ...
-    async function addContactById(contactId) {
-      // Tambahkan kontak ke daftar kita
-      const myContactsDoc = doc(db, 'contacts', myId);
-      await setDoc(myContactsDoc, { users: arrayUnion(contactId) }, { merge: true });
-
-      // Minta kontak lain untuk menambahkan kita
-      const theirContactsDoc = doc(db, 'contacts', contactId);
-      await setDoc(theirContactsDoc, { users: arrayUnion(myId) }, { merge: true });
-      
-      loadContacts();
-    }
-
-    async function loadContacts() {
-// ... existing code ...
 <!DOCTYPE html>
 <html lang="id">
 <head>
