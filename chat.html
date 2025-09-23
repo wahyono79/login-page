@@ -101,7 +101,7 @@
         </div>
       </div>
       <div class="contact-list" id="contact-list">
-        <p class="text-center text-muted p-3">Tidak ada kontak.</p>
+        <!-- Kontak akan dimuat di sini -->
       </div>
     </div>
 
@@ -281,23 +281,18 @@
         return;
       }
 
-      // Cek apakah user ada di 'users' collection
-      await addContactById(contactId);
-      startChat(contactId); // Langsung mulai chat setelah menambahkan
+      await ensureContactExists(contactId);
+      startChat(contactId);
       addContactIdInput.value = '';
     }
 
-    async function addContactById(contactId, partnerId = null) {
-      // Tambahkan kontak ke daftar kita
+    async function ensureContactExists(contactId) {
+      if (contacts.includes(contactId)) return; // Sudah ada, tidak perlu melakukan apa-apa
+
       const myContactsDoc = doc(db, 'contacts', myId);
       await setDoc(myContactsDoc, { users: arrayUnion(contactId) }, { merge: true });
-
-      // Minta kontak lain untuk menambahkan kita
-      if (partnerId) {
-        const theirContactsDoc = doc(db, 'contacts', partnerId);
-        await setDoc(theirContactsDoc, { users: arrayUnion(myId) }, { merge: true });
-      }
-      loadContacts();
+      const theirContactsDoc = doc(db, 'contacts', contactId);
+      await setDoc(theirContactsDoc, { users: arrayUnion(myId) }, { merge: true });
     }
 
     async function loadContacts() {
@@ -305,12 +300,19 @@
       if (myContactsDoc.exists()) {
         contacts = myContactsDoc.data().users || [];
         renderContacts();
+      } else {
+        renderContacts(); // Render daftar kosong jika belum ada dokumen
       }
     }
 
     function renderContacts() {
+      contactListEl.innerHTML = `
+        <div class="d-flex justify-content-center align-items-center p-3">
+          <div class="spinner-border spinner-border-sm" role="status"></div>
+        </div>`;
+
       if (contacts.length === 0) {
-        contactListEl.innerHTML = '<p class="text-center text-muted p-3">Tidak ada kontak.</p>';
+        contactListEl.innerHTML = '<p class="text-center text-muted p-3">Mulai chat dengan menambahkan ID kontak.</p>';
         return;
       }
       contactListEl.innerHTML = '';
@@ -337,7 +339,7 @@
     addContactIdInput.addEventListener('keydown', (e) => {
         if (e.key === 'Enter') {
             startChatFromInput();
-        }
+        } 
     });
     loadContacts();
 
@@ -439,11 +441,6 @@
       resetUnreadCount(partnerId);
       renderContacts(); // Render ulang kontak untuk menghapus badge
 
-      // Jika kontak belum ada di list, tambahkan sementara ke UI
-      if (!contacts.includes(partnerId)) {
-          addContactIdInput.value = partnerId;
-      }
-
       if (messageUnsubscribe) messageUnsubscribe();
 
       const roomId = getChatRoomId(myId, partnerId);
@@ -530,15 +527,9 @@
       const text = messageText.value.trim();
       if (text && activeChatPartner) {
         const roomId = getChatRoomId(myId, activeChatPartner);
+        
+        await ensureContactExists(activeChatPartner);
 
-        // Jika partner belum ada di kontak, tambahkan secara otomatis untuk kedua belah pihak
-        if (!contacts.includes(activeChatPartner)) {
-            await addContactById(activeChatPartner, activeChatPartner);
-            // Juga tambahkan diri kita ke daftar kontak mereka
-            const theirContactsDoc = doc(db, 'contacts', activeChatPartner);
-            await setDoc(theirContactsDoc, { users: arrayUnion(myId) }, { merge: true });
-            addContactIdInput.value = ''; // Kosongkan input setelah berhasil
-        }
         const messagesRef = collection(db, 'chatRooms', roomId, 'messages');
         await addDoc(messagesRef, {
           type: 'text',
@@ -736,13 +727,7 @@
     const startCall = async (isVideo) => {
       if (!activeChatPartner) return alert("Pilih kontak untuk dipanggil.");
 
-      // Jika partner belum ada di kontak, tambahkan secara otomatis
-      if (!contacts.includes(activeChatPartner)) {
-          await addContactById(activeChatPartner, activeChatPartner);
-          // Juga tambahkan diri kita ke daftar kontak mereka
-          const theirContactsDoc = doc(db, 'contacts', activeChatPartner);
-          await setDoc(theirContactsDoc, { users: arrayUnion(myId) }, { merge: true });
-      }
+      await ensureContactExists(activeChatPartner);
 
       const callDoc = doc(db, 'calls', activeChatPartner);
       const offerCandidates = collection(callDoc, 'offerCandidates');
@@ -755,47 +740,12 @@
         event.candidate && addDoc(offerCandidates, event.candidate.toJSON());
       };
 
-      // Batasi resolusi video saat memulai panggilan
-      const videoConstraints = isVideo ? {
-          width: { ideal: 640, max: 1280 },
-          height: { ideal: 480, max: 720 },
-          frameRate: { ideal: 15, max: 30 }
-      } : false;
-
-      try {
-        localStream = await navigator.mediaDevices.getUserMedia({ video: videoConstraints, audio: true });
-      } catch (err) {
-        console.error("Gagal mendapatkan media:", err);
-        showToast("Tidak bisa mengakses kamera/mikrofon.", "danger");
-        endCall(); // Batalkan panggilan jika media tidak tersedia
+      const stream = await setupCall(isVideo);
+      if (!stream) {
+        endCall(true); // Batalkan panggilan jika media tidak tersedia
         return;
       }
-      remoteStream = new MediaStream();
-      localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
-
-      pc.ontrack = event => {
-        event.streams[0].getTracks().forEach(track => remoteStream.addTrack(track));
-      };
-
-      localVideo.srcObject = localStream;
-      remoteVideo.srcObject = remoteStream;
-      videoContainer.style.display = 'block';
-
-      // Konfigurasi adaptasi jaringan dan prioritas audio
-      const videoSender = pc.getSenders().find(s => s.track?.kind === 'video');
-      if (videoSender) {
-          const parameters = videoSender.getParameters();
-          if (!parameters.encodings) {
-              parameters.encodings = [{}];
-          }
-          // Prioritaskan audio, turunkan kualitas video jika perlu
-          parameters.encodings[0].degradationPreference = 'maintain-framerate'; // atau 'balanced'
-          // Batasi bitrate maksimum untuk video
-          parameters.encodings[0].maxBitrate = 800 * 1000; // 800 kbps
-          
-          await videoSender.setParameters(parameters);
-      }
-
+      
       const offerDescription = await pc.createOffer();
       await pc.setLocalDescription(offerDescription);
 
@@ -824,14 +774,7 @@
       incomingCallToast.hide();
       ringtoneSound.pause(); ringtoneSound.currentTime = 0;
       if (!currentCaller) return;
-
-      // Saat menjawab, otomatis tambahkan penelepon ke kontak jika belum ada
-      if (!contacts.includes(currentCaller)) {
-          await addContactById(currentCaller, currentCaller);
-          // Juga tambahkan diri kita ke daftar kontak mereka
-          const theirContactsDoc = doc(db, 'contacts', currentCaller);
-          await setDoc(theirContactsDoc, { users: arrayUnion(myId) }, { merge: true });
-      }
+      await ensureContactExists(currentCaller);
 
       const callDoc = doc(db, 'calls', myId);
       const answerCandidates = collection(callDoc, 'answerCandidates');
@@ -844,32 +787,14 @@
         event.candidate && addDoc(answerCandidates, event.candidate.toJSON());
       };
 
-      // Dapatkan stream dengan batasan yang sama
       const callData = (await getDoc(callDoc)).data();
       const isVideoCall = callData.offer.sdp.includes('m=video'); // Cek apakah ini video call
-      const videoConstraints = isVideoCall ? {
-          width: { ideal: 640, max: 1280 },
-          height: { ideal: 480, max: 720 },
-          frameRate: { ideal: 15, max: 30 }
-      } : false;
 
-      try {
-        localStream = await navigator.mediaDevices.getUserMedia({ video: videoConstraints, audio: true });
-      } catch (err) {
-        console.error("Gagal mendapatkan media:", err);
-        showToast("Tidak bisa mengakses kamera/mikrofon.", "danger");
+      const stream = await setupCall(isVideoCall);
+      if (!stream) {
+        rejectCall(true); // Tolak jika tidak bisa mendapatkan media
         return;
       }
-      remoteStream = new MediaStream();
-      localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
-
-      pc.ontrack = event => {
-        event.streams[0].getTracks().forEach(track => remoteStream.addTrack(track));
-      };
-
-      localVideo.srcObject = localStream;
-      remoteVideo.srcObject = remoteStream;
-      videoContainer.style.display = 'block';
 
       const offerDescription = callData.offer;
       await pc.setRemoteDescription(new RTCSessionDescription(offerDescription));
@@ -899,7 +824,7 @@
     };
 
     // Fungsi untuk mengakhiri panggilan
-    const endCall = async () => {
+    const endCall = async (isSilent = false) => {
       ringtoneSound.pause(); ringtoneSound.currentTime = 0;
       if (localStream) {
         localStream.getTracks().forEach(track => track.stop());
@@ -914,21 +839,63 @@
       localVideo.srcObject = null;
       remoteVideo.srcObject = null;
 
-      const callee = activeChatPartner || currentCaller;
-      if (callee) {
-        const callDoc = doc(db, 'calls', callee);
-        if ((await getDoc(callDoc)).exists()) await deleteDoc(callDoc);
+      // Hapus dokumen panggilan di kedua sisi
+      const partnerId = activeChatPartner || currentCaller;
+      if (partnerId) {
+        const theirCallDocRef = doc(db, 'calls', partnerId);
+        if ((await getDoc(theirCallDocRef)).exists()) await deleteDoc(theirCallDocRef);
       }
-      const myCallDoc = doc(db, 'calls', myId);
-      if ((await getDoc(myCallDoc)).exists()) await deleteDoc(myCallDoc);
+      const myCallDocRef = doc(db, 'calls', myId);
+      if ((await getDoc(myCallDocRef)).exists()) await deleteDoc(myCallDocRef);
 
       if (callUnsubscribe) {
         callUnsubscribe();
         callUnsubscribe = null;
       }
 
-      activeChatPartner = null;
+      if (!isSilent) {
+        // Jangan reset activeChatPartner agar chat tetap terbuka
+      }
       currentCaller = null;
+    };
+
+    // Fungsi helper untuk setup media dan UI panggilan
+    async function setupCall(isVideo) {
+        const videoConstraints = isVideo ? {
+            width: { ideal: 640, max: 1280 },
+            height: { ideal: 480, max: 720 },
+            frameRate: { ideal: 15, max: 30 }
+        } : false;
+
+        try {
+            localStream = await navigator.mediaDevices.getUserMedia({ video: videoConstraints, audio: true });
+        } catch (err) {
+            console.error("Gagal mendapatkan media:", err);
+            showToast("Tidak bisa mengakses kamera/mikrofon.", "danger");
+            return null;
+        }
+
+        remoteStream = new MediaStream();
+        localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
+
+        pc.ontrack = event => {
+            event.streams[0].getTracks().forEach(track => remoteStream.addTrack(track));
+        };
+
+        localVideo.srcObject = localStream;
+        remoteVideo.srcObject = remoteStream;
+        videoContainer.style.display = 'block';
+
+        const videoSender = pc.getSenders().find(s => s.track?.kind === 'video');
+        if (videoSender) {
+            const parameters = videoSender.getParameters();
+            if (!parameters.encodings) parameters.encodings = [{}];
+            parameters.encodings[0].degradationPreference = 'maintain-framerate';
+            parameters.encodings[0].maxBitrate = 800 * 1000; // 800 kbps
+            await videoSender.setParameters(parameters);
+        }
+        
+        return localStream;
     };
 
     // Event Listeners
