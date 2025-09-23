@@ -23,7 +23,8 @@
     .message { margin-bottom: 10px; display: flex; }
     .message.sent { justify-content: flex-end; }
     .message.received { justify-content: flex-start; }
-    .message-bubble { padding: 8px 12px; border-radius: 18px; max-width: 75%; }
+    .message-bubble { padding: 8px 12px; border-radius: 18px; max-width: 75%; position: relative; }
+    .message-bubble:hover .delete-msg-btn { opacity: 1; }
     .message.sent .message-bubble { background: var(--primary-color); color: #fff; }
     .message.received .message-bubble { background: #e9ecef; color: #212121; }
     .message-sender { font-size: 0.75rem; color: #6c757d; margin: 0 5px 2px; }
@@ -31,6 +32,10 @@
     .message-bubble img, .message-bubble video { max-width: 100%; border-radius: 10px; margin-top: 5px; }
     .file-attachment a { color: inherit; text-decoration: underline; }
     .message.sent .file-attachment a { color: white; }
+    .deleted-message { font-style: italic; color: #adb5bd; }
+    .message.sent .deleted-message { color: #e0e0e0; }
+    .delete-msg-btn { position: absolute; top: -10px; right: -5px; background: #fff; border-radius: 50%; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; box-shadow: 0 1px 3px rgba(0,0,0,0.2); cursor: pointer; opacity: 0; transition: opacity 0.2s; }
+    .delete-msg-btn .material-icons { font-size: 16px; color: #dc3545; }
     .upload-progress { position: absolute; bottom: 0; left: 0; height: 3px; background-color: var(--primary-color); width: 0%; transition: width 0.2s; }
     #remoteVideo { width: 100%; height: 100%; object-fit: cover; }
     #localVideo { width: 30%; max-width: 200px; position: absolute; bottom: 20px; right: 20px; border: 2px solid #fff; border-radius: 8px; object-fit: cover; }
@@ -165,6 +170,8 @@
     let activeChatPartner = null;
     let messageUnsubscribe = null;
     let contacts = [];
+
+    window.deleteMessage = deleteMessage; // Expose deleteMessage to global scope
 
     // --- AUDIO NOTIFIKASI ---
     const notificationSound = new Audio('data:audio/mpeg;base64,SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2ZjU4LjQ1LjEwMAAAAAAAAAAAAAAA//tAwAAAAAAAAAAAAAAAAAAAAAAAAB4cHJvYwAAAAwAAAAAMjU2ODAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDA-');
@@ -352,10 +359,17 @@
             }
         });
 
-        snapshot.forEach(doc => {
-          const msg = doc.data();
+        snapshot.forEach(messageDoc => {
+          const msg = messageDoc.data();
+          const msgId = messageDoc.id;
           const isSent = msg.senderId === myId;
           let messageContent = '';
+          let deleteButton = '';
+
+          // Tampilkan tombol hapus hanya untuk pesan yang dikirim oleh pengguna dan belum dihapus
+          if (isSent && !msg.deleted) {
+            deleteButton = `<div class="delete-msg-btn" onclick="deleteMessage('${msgId}')"><i class="material-icons">delete</i></div>`;
+          }
 
           if (msg.type === 'image') {
             messageContent = `<img src="${escapeHtml(msg.url)}" alt="Gambar">`;
@@ -369,8 +383,12 @@
               </div>
             `;
           } else {
-            // Pesan teks biasa
-            messageContent = escapeHtml(msg.text);
+            // Cek apakah pesan sudah dihapus
+            if (msg.deleted) {
+              messageContent = `<span class="deleted-message">Pesan ini telah dihapus</span>`;
+            } else {
+              messageContent = escapeHtml(msg.text);
+            }
           }
 
           const div = document.createElement('div');
@@ -378,8 +396,9 @@
           div.innerHTML = `
             <div>
               ${!isSent ? `<div class="message-sender">${escapeHtml(msg.senderId)}</div>` : ''}
-              <div class="message-bubble">
+              <div class="message-bubble" id="msg-${msgId}">
                 ${messageContent}
+                ${deleteButton}
               </div>
             </div>
           `;
@@ -418,6 +437,7 @@
         await addDoc(messagesRef, {
           type: 'text',
           text: text,
+          deleted: false, // Tambahkan properti 'deleted'
           senderId: myId,
           createdAt: serverTimestamp()
         });
@@ -476,6 +496,7 @@
             type: fileType, 
             url: downloadURL, 
             fileName: file.name, 
+            deleted: false, // Tambahkan properti 'deleted'
             senderId: myId, 
             createdAt: serverTimestamp() 
         });
@@ -488,6 +509,21 @@
       }
     }
 
+    // --- FUNGSI HAPUS PESAN ---
+    async function deleteMessage(messageId) {
+        if (!activeChatPartner || !messageId) return;
+
+        const confirmed = confirm("Apakah Anda yakin ingin menghapus pesan ini?");
+        if (confirmed) {
+            const roomId = getChatRoomId(myId, activeChatPartner);
+            const messageRef = doc(db, 'chatRooms', roomId, 'messages', messageId);
+            
+            // Update pesan, jangan dihapus dari database
+            await updateDoc(messageRef, {
+                deleted: true
+            });
+        }
+    }
     // --- SISTEM NOTIFIKASI PESAN BELUM DIBACA ---
     function updateUnreadCount(partnerId) {
         const unread = JSON.parse(localStorage.getItem('unreadMessages') || '{}');
