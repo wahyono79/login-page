@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="id">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard - LSM WiFi</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f0f4f8;
+        }
+
+        .bg-dark-green {
+            background-color: #013220;
+        }
+
+        .text-dark-green {
+            color: #013220;
+        }
+    </style>
+</head>
+
+<body class="min-h-screen">
+
+    <!-- Auth Overlay (Simple simulation) -->
+    <div id="authOverlay" class="fixed inset-0 bg-dark-green z-50 flex items-center justify-center p-4">
+        <div class="bg-white p-8 rounded-2xl shadow-xl w-full max-w-sm text-center">
+            <h2 class="text-2xl font-bold text-dark-green mb-6">Login Admin</h2>
+            <div class="mb-4 text-left">
+                <label class="block text-sm font-semibold text-gray-700 mb-2">Password</label>
+                <input type="password" id="adminPass"
+                    class="w-full p-3 border rounded-xl focus:ring-2 focus:ring-green-600 outline-none"
+                    placeholder="Masukkan password...">
+            </div>
+            <button onclick="checkAuth()"
+                class="w-full bg-dark-green text-white font-bold py-3 rounded-xl hover:bg-green-800 transition">Masuk</button>
+            <p class="mt-4 text-xs text-gray-500">Hint: admin123</p>
+        </div>
+    </div>
+
+    <!-- Main Dashboard -->
+    <div id="dashboard" class="hidden">
+        <nav class="bg-dark-green text-white p-4 shadow-md sticky top-0 z-40">
+            <div class="container mx-auto flex justify-between items-center">
+                <h1 class="text-xl font-bold">Admin Panel - Jangkauan WiFi</h1>
+                <button onclick="logout()"
+                    class="text-sm bg-red-600 px-3 py-1.5 rounded-lg hover:bg-red-700">Logout</button>
+            </div>
+        </nav>
+
+        <main class="container mx-auto p-4 max-w-4xl py-8">
+
+            <div class="bg-blue-50 border-l-4 border-blue-500 p-4 mb-8 rounded-r-lg">
+                <h3 class="font-bold text-blue-800 mb-2">👋 Cara Penggunaan</h3>
+                <ol class="list-decimal list-inside text-sm text-blue-700 space-y-1">
+                    <li>Gunakan panel <strong>Daftar Router</strong> untuk menambah atau menghapus titik akses WiFi.
+                    </li>
+                    <li>Klik <strong>Simpan Perubahan</strong> untuk menerapkan update ke aplikasi pengguna secara
+                        langsung.</li>
+                    <li>Gunakan panel <strong>Simulasi Koneksi User</strong> untuk menentukan Router mana yang "sedang
+                        terhubung" oleh user.</li>
+                    <li>Ini akan membuat Router tersebut menyala kuning di peta jangkauan user.</li>
+                </ol>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+
+                <!-- Manage Routers -->
+                <div class="bg-white p-6 rounded-2xl shadow-md">
+                    <div class="flex justify-between items-center mb-6">
+                        <h2 class="text-xl font-bold text-dark-green">Daftar Router</h2>
+                        <button onclick="addRouter()"
+                            class="bg-green-600 text-white px-3 py-1.5 rounded-lg text-sm hover:bg-green-700">+
+                            Tambah</button>
+                    </div>
+
+                    <div id="routerList" class="space-y-4 max-h-[400px] overflow-y-auto pr-2">
+                        <!-- Router items injected here -->
+                    </div>
+
+                    <button onclick="saveChanges()"
+                        class="w-full mt-6 bg-dark-green text-white font-bold py-3 rounded-xl hover:bg-green-800 transition">Simpan
+                        & Update Aplikasi</button>
+                </div>
+
+                <!-- Simulation Control -->
+                <div class="bg-white p-6 rounded-2xl shadow-md h-fit">
+                    <h2 class="text-xl font-bold text-dark-green mb-6">Simulasi Koneksi User</h2>
+                    <p class="text-gray-600 text-sm mb-4">Pilih AP mana yang saat ini melayani user. Ini akan
+                        mensimulasikan deteksi lokasi user di aplikasi.</p>
+
+                    <div class="mb-4">
+                        <label class="block text-sm font-semibold text-gray-700 mb-2">Connected AP</label>
+                        <select id="connectedApSelect"
+                            class="w-full p-3 border rounded-xl focus:ring-2 focus:ring-green-600 outline-none"
+                            onchange="updateSimulation()">
+                            <option value="">-- Tidak Terhubung --</option>
+                            <!-- Options injected here -->
+                        </select>
+                    </div>
+
+                    <div class="p-4 bg-yellow-50 rounded-xl border border-yellow-200">
+                        <p class="text-xs text-yellow-800">
+                            <strong>Note:</strong> Dalam implementasi nyata, deteksi ini dilakukan otomatis membaca
+                            BSSID WiFi atau IP gateway user. Di sini kita menggunakan simulasi manual untuk demo.
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="mt-8 text-center">
+                <a href="index.html" target="_blank" class="text-green-600 hover:underline font-semibold">Buka Aplikasi
+                    User (Preview) ↗</a>
+            </div>
+
+        </main>
+    </div>
+
+    <script>
+        // Init Data
+        const defaultNodes = [
+            { id: 'ap1', label: "Router RT 01", angle: 0, delay: 0 },
+            { id: 'ap2', label: "Router RT 02", angle: 72, delay: 0.5 },
+            { id: 'ap3', label: "Router RT 03", angle: 144, delay: 1 },
+            { id: 'ap4', label: "Router RT 04", angle: 216, delay: 1.5 },
+            { id: 'ap5', label: "Router RT 05", angle: 288, delay: 2 }
+        ];
+
+        let nodes = JSON.parse(localStorage.getItem('networkNodes')) || defaultNodes;
+        let currentConnected = localStorage.getItem('currentConnectedAP') || '';
+
+        // Auth Logic
+        function checkAuth() {
+            const pass = document.getElementById('adminPass').value;
+            if (pass === 'admin123') {
+                document.getElementById('authOverlay').classList.add('hidden');
+                document.getElementById('dashboard').classList.remove('hidden');
+                renderRouters();
+                renderSimulationSelect();
+            } else {
+                alert('Password salah!');
+            }
+        }
+
+        function logout() {
+            location.reload();
+        }
+
+        // Render Functions
+        function renderRouters() {
+            const list = document.getElementById('routerList');
+            list.innerHTML = '';
+            nodes.forEach((node, index) => {
+                const item = document.createElement('div');
+                item.className = 'p-3 border rounded-xl bg-gray-50 flex flex-col gap-2';
+                item.innerHTML = `
+                    <div class="flex justify-between items-center">
+                        <span class="font-bold text-gray-700">Router #${index + 1}</span>
+                        <button onclick="removeRouter(${index})" class="text-red-500 text-sm hover:text-red-700">Hapus</button>
+                    </div>
+                    <div class="grid grid-cols-2 gap-2">
+                        <div>
+                            <label class="text-xs text-gray-500">Nama/Label</label>
+                            <input type="text" value="${node.label}" onchange="updateNode(${index}, 'label', this.value)" class="w-full p-1 text-sm border rounded">
+                        </div>
+                        <div>
+                            <label class="text-xs text-gray-500">Sudut (0-360)</label>
+                            <input type="number" value="${node.angle}" onchange="updateNode(${index}, 'angle', this.value)" class="w-full p-1 text-sm border rounded">
+                        </div>
+                    </div>
+                `;
+                list.appendChild(item);
+            });
+            renderSimulationSelect(); // Update select options too
+        }
+
+        function renderSimulationSelect() {
+            const select = document.getElementById('connectedApSelect');
+            select.innerHTML = '<option value="">-- Tidak Terhubung --</option>';
+            nodes.forEach(node => {
+                const opt = document.createElement('option');
+                opt.value = node.id;
+                opt.textContent = node.label;
+                if (node.id === currentConnected) opt.selected = true;
+                select.appendChild(opt);
+            });
+        }
+
+        // Action Functions
+        function addRouter() {
+            const newId = 'ap' + Date.now(); // Simple ID generation
+            const count = nodes.length;
+            const newAngle = (count * 72) % 360; // Auto distribute roughly
+            nodes.push({ id: newId, label: 'New Router', angle: newAngle, delay: 0 });
+            renderRouters();
+        }
+
+        function removeRouter(index) {
+            if (confirm('Hapus router ini?')) {
+                nodes.splice(index, 1);
+                renderRouters();
+            }
+        }
+
+        function updateNode(index, field, value) {
+            if (field === 'angle') value = parseInt(value);
+            nodes[index][field] = value;
+        }
+
+        function saveChanges() {
+            localStorage.setItem('networkNodes', JSON.stringify(nodes));
+            alert('Perubahan berhasil disimpan! User akan melihat update saat refresh.');
+            renderRouters();
+        }
+
+        function updateSimulation() {
+            const select = document.getElementById('connectedApSelect');
+            currentConnected = select.value;
+            localStorage.setItem('currentConnectedAP', currentConnected);
+
+            // Visual feedback
+            const originalText = select.options[select.selectedIndex].text;
+            // Removed alert to make it smoother, just saves silently
+        }
+
+    </script>
+</body>
+
+</html>

@@ -1,8 +1,8 @@
-const CACHE_NAME = 'lsm-wifi-cache-v2'; // Naikkan versi cache untuk memicu pembaruan
+const CACHE_NAME = 'lsm-wifi-cache-v3'; // Naikkan versi cache untuk memicu pembaruan
 const URLS_TO_CACHE = [
     '/',
     '/index.html',
-    '/chat.html', // Tambahkan chat.html agar bisa diakses offline
+
     '/manifest.json',
     '/images/icon-192x192.png',
     '/images/icon-512x512.png' // Tambahkan ikon lain yang ada di manifest
