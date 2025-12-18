@@ -302,17 +302,31 @@
 
                 <!-- Status & Stats Cards -->
                 <!-- Info Kuota WiFi (Full Width) -->
-                <div class="w-full bg-dark-green text-white p-4 rounded-2xl shadow-md mb-6">
-                    <h3 class="text-lg font-semibold mb-3">Info Kuota WiFi</h3>
-                    <div class="w-full h-80 bg-white rounded-xl overflow-hidden relative">
-                        <iframe src="http://10.44.77.240:2060" class="w-full h-full border-0"
-                            title="Status Kuota"></iframe>
-                        <div class="absolute inset-0 flex items-center justify-center -z-10 text-gray-400 text-sm">
-                            Memuat data...
-                        </div>
+                <div class="w-full bg-dark-green text-white p-6 rounded-2xl shadow-md mb-6 text-center">
+                    <h3 class="text-lg font-semibold mb-4">Info Kuota WiFi</h3>
+
+                    <div class="bg-white/10 p-6 rounded-xl backdrop-blur-sm border border-white/20 mb-4">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-16 w-16 mx-auto mb-3 text-yellow-400"
+                            fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                        </svg>
+                        <p class="text-sm opacity-90 mb-2">
+                            Data kuota tersedia di server lokal.
+                        </p>
                     </div>
-                    <p class="text-xs text-center mt-2 opacity-80">
-                        Pastikan Anda terhubung ke jaringan WiFi LSM untuk melihat data.
+
+                    <a href="http://10.44.77.240:2060" target="_blank"
+                        class="inline-block w-full bg-white text-dark-green font-bold py-3 px-6 rounded-xl hover:bg-gray-100 transition-colors shadow-lg">
+                        Buka Status Kuota
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 inline-block ml-1" fill="none"
+                            viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                        </svg>
+                    </a>
+                    <p class="text-xs mt-3 opacity-70">
+                        *Pastikan Anda terhubung ke jaringan WiFi LSM.
                     </p>
                 </div>
             </section>
