@@ -1,4 +1,4 @@
-const CACHE_NAME = 'lsm-wifi-cache-v3'; // Naikkan versi cache untuk memicu pembaruan
+const CACHE_NAME = 'lsm-wifi-cache-v4'; // Naikkan versi cache untuk memicu pembaruan
 const URLS_TO_CACHE = [
     '/',
     '/index.html',
