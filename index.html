@@ -420,6 +420,12 @@
                                 class="w-full px-4 py-3 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-green-400">
                         </div>
                         <div class="mb-4">
+                            <label for="email" class="block text-gray-700 font-semibold mb-2">Email (Untuk
+                                Balasan)</label>
+                            <input type="email" id="email" name="from_email" required placeholder="nama@email.com"
+                                class="w-full px-4 py-3 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-green-400">
+                        </div>
+                        <div class="mb-4">
                             <label for="message" class="block text-gray-700 font-semibold mb-2">Pesan Anda</label>
                             <textarea id="message" name="message" rows="4" required
                                 class="w-full px-4 py-3 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-green-400"></textarea>
@@ -739,6 +745,7 @@
 
             // Auto fill name field
             document.getElementById('name').value = responsePayload.name;
+            document.getElementById('email').value = responsePayload.email;
         }
 
         // Contact Form Submit Handler
@@ -763,14 +770,14 @@
             const templateParams = {
                 to_email: 'wahyono79@gmail.com', // Tujuan email (jika diset dinamis di template)
                 from_name: document.getElementById('name').value,
-                from_email: currentUser ? currentUser.email : 'Tamu (Tanpa Login)',
+                from_email: document.getElementById('email').value, // Use the actual input value
                 message: document.getElementById('message').value,
                 user_photo: currentUser ? currentUser.picture : ''
             };
 
             // Kirim email menggunakan EmailJS
             // GANTI 'YOUR_SERVICE_ID' dan 'YOUR_TEMPLATE_ID' DENGAN NILAI ASLI ANDA
-            emailjs.send('service_LSM', 'template_0jarvzn', templateParams)
+            emailjs.send('service_LSM', 'template_j4fo233', templateParams)
                 .then(function (response) {
                     console.log('SUCCESS!', response.status, response.text);
                     showToast('Pesan berhasil terkirim!', 'online');
@@ -929,6 +936,4 @@
     </script>
 </body>
 
-
 </html>
-
